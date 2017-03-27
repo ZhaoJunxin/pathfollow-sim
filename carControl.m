@@ -22,7 +22,7 @@ function varargout = carControl(varargin)
 
 % Edit the above text to modify the response to help carControl
 
-% Last Modified by GUIDE v2.5 10-Mar-2017 15:19:41
+% Last Modified by GUIDE v2.5 26-Mar-2017 15:50:20
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -86,7 +86,7 @@ varargout{1} = handles.output;
 
 
 
-function updata(obj,~,handles)
+function remotecontrol(obj,~,handles)          %ÓÃÓÚcontrol_axes¿ØÖÆĞ¡³µÄ£ĞÍÒÆ¶¯
 global iMapX;
 global iMapY;
 global iMapYaw;
@@ -108,7 +108,7 @@ if ishandle(handles.figure1)
     delete(get(handles.map_axes,'children'));       %ÍÛ£¬ÌØÃ´»­Áúµã¾¦Ö®±Ê£¬Ö®Ç°±ÀÀ£ÊÇÒòÎª×Ó¶ÔÏóÌ«¶àÁË£¬»ØÈ¥Ë¯¾õ£¬ÃÀ×Ì×Ì
      line(iMapX,iMapY,'parent',handles.map_axes,'erasemode','normal');
 else
-    stop(obj);
+    stop(obj);                          %obj¼´µ±Ç°µÄ¶¨Ê±Æ÷¶ÔÏó
     delete(obj);
 end
 
@@ -124,14 +124,15 @@ global iMapY;
 global iMapYaw;
 global pathX;
 global pathY;
+global tangent;
 if  strcmp(get(gco,'Tag'),'control_axes')
-   if strcmp(get(gcf,'selectiontype'),'normal')
+   if strcmp(get(gcf,'selectiontype'),'normal')    %×ó¼ü¿ªÊ¼¿ØÖÆ·ÂÕæĞ¡³µÔË¶¯
     set(handles.map_axes,'xlim',[-2000,2000],'ylim',[-2000,2000]);
     setappdata(hObject,'conAxesIP',true);               %conAxesIP:Control_axes_isPressed
     t = timer('BusyMode','error','ExecutionMode','fixedRate',...
-        'Period',0.08,'TimerFcn',{@updata,handles});
+        'Period',0.08,'TimerFcn',{@remotecontrol,handles},'Tag','control');
     start(t);
-elseif strcmp(get(gcf,'selectiontype'),'alt')
+    elseif strcmp(get(gcf,'selectiontype'),'alt')   %ÓÒ¼üÇå¿ÕmapÖĞµÄÂ·¾¶
     set(hObject,'UserData',[0,0]);
     iMapX = [0,0];
     iMapY = [0,0];
@@ -148,6 +149,23 @@ if get(handles.path_painter,'value')&& ...          %path_painterÑ¡ÖĞ
     pathY = [loc(3),pathY];
     delete(findobj(handles.map_axes,'Tag','setPath'));        %Íü¼ÇÇ°ÈÎ£¬Ñ°ÇóĞÂ»»
     line(pathX,pathY,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
+end
+if get(handles.getrefbtn,'value')&& ...          %path_painterÑ¡ÖĞ
+        strcmp(get(gco,'Tag'),'map_axes') && ...         %Êó±êÔÚmapÀïÃæ
+            strcmp(get(gcf,'selectiontype'),'normal')         %×ó¼üÑ¡Ôñ
+        loc = get(handles.map_axes,'currentpoint');
+        for n = 2:length(pathX);
+            radtemp = tangent(n) - pi/2;            %´Ë´¦¼õÈ¥pi/2µÄÔ­ÒòÊÇÎªÁËÈÃ²Î¿¼Ä¿±ê·½Ïò³ÉÎªYÖá
+            ydiff = -sin(radtemp)*(loc(1)-pathX(n))+cos(radtemp)*(loc(3)-pathY(n));
+            dist = norm([loc(1)-pathX(n),loc(3)-pathY(n)]);
+            if ydiff<0 && dist < 200
+                set(findobj('tag','refpoint'),'visible','on','xdata',pathX(n),'ydata',pathY(n));
+%                 pathX(n)
+%                 pathY(n)
+%                 tangent(n)
+                break;
+            end
+        end
 end
 
 
@@ -176,7 +194,7 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 if getappdata(hObject,'conAxesIP')
       setappdata(hObject,'conAxesIP',false);
-      t = timerfind;
+      t = timerfind('Tag','control');
       stop(t);
       delete(t);
 elseif getappdata(hObject,'mapAxesIP')
@@ -193,7 +211,7 @@ function path_painter_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of path_painter
 global pathX;
 global pathY;
-pathX = [0 0];
+pathX = [0 0];                          %´Ë´¦¸³ÖµÎª[0 0]£¬±£Ö¤Â·¾¶Æğµã´ÓÔ­µã¿ªÊ¼
 pathY = [0 0];
 state = get(hObject,'value');
 if state
@@ -222,3 +240,39 @@ if  ~get(handles.path_painter,'value')                          %ÅĞ¶ÏÊÇ·ñ½áÊøÂ·¾
       clear global pathY;
       drawnow;                                  %Ë¢ĞÂ...ºÃÏñÃ»Ã»Ê²Ã´ÂÑÓÃ...É¾³ı¶ÔÏóÖ®ºóÖØ»æÒ»ÏÂ°É£¬±£Ö¤¾«¶È
 end
+
+
+% --- Executes on button press in getrefbtn.
+function getrefbtn_Callback(hObject, eventdata, handles)
+% hObject    handle to getrefbtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% Hint: get(hObject,'Value') returns toggle state of getrefbtn
+state = get(hObject,'value');
+if state
+    set(hObject,'string','½áÊøÄ¿±êµã»ñÈ¡');
+    patch('xdata',0,'ydata',0,'Marker','o','edgecolor','r','visible','off','tag','refpoint');
+%    setappdata(hObject,'getrefIP',true);
+else
+    set(hObject,'string','¿ªÊ¼Ä¿±êµã»ñÈ¡');
+    delete(findobj('tag','refpoint'));
+%    setappdata(hObject,'getrefIP',false);
+end
+
+
+% --- Executes on button press in pathjudger.
+function pathjudger_Callback(hObject, eventdata, handles)
+% hObject    handle to pathjudger (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global pathX
+global pathY
+global tangent
+hline = findobj(handles.map_axes,'Tag','setPath');
+pathX=get(hline,'xdata');
+pathY=get(hline,'ydata');
+[pathX,pathY,tangent] = pathjudger(pathX,pathY);
+delete(findobj(handles.map_axes,'Tag','setPath'));
+line(pathX,pathY,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
+
+
