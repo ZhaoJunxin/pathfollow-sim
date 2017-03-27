@@ -4,6 +4,7 @@ function [ outx,outy,theta ] = pathjudger(inpx,inpy)
 %   1.基于动力学模型平滑路径
 %   2.提取出目标点的方向角theta（弧度）
 %   inpx为画板中直接绘制图像的X轴数据，inpy为Y轴数据
+%   函数中有line函数用于debug查看效果，现在注释掉了
 %%%%%%%%以下部分用于将x,y数据合并处理，并删除其中的重复数据%%%%%%%%%
 linearray = [inpx',inpy'];
 %linearray = flip(linearray);
@@ -50,8 +51,11 @@ end
 linearray(1,:) = []; %删掉第一行元素，感谢他的无私奉献
 outx = linearray(:,1);
 outy = linearray(:,2);
-line(outx,outy,'marker','d','color','r')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%line(outx,outy,'marker','d','color','r')
 thetarad([1,j+1:end]) = [];         %删掉空白的部分
+%thetarad(j+1) = vec2rad([1,0],[outx(end)-outx(end-1),outy(end)-outy(end-1)]);  
+thetarad(length(outx)) = vec2rad([1,0],[outx(end)-outx(end-1),outy(end)-outy(end-1)]);   %增加最后一个点的目标方向，大小等于切线方向   
+%这里不能用j作为索引，因为j最后的值并不确定，这是由于上面平滑路径算法原因导致的，但是length(outx)可以保证thetarad索引到最后一个点
 theta = thetarad;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%删除直线段中间的点，范围2-length(outx)-1%%%%%%%%%%%%%%%%%%%%%%%
@@ -70,9 +74,10 @@ end
 useless(useless == 0) = [];
 linearray(useless,:) = [];
 theta(useless) = [];
+theta = real(theta);            %此处不知道为什么会引入虚部，做下处理
 outx = linearray(:,1);
 outy = linearray(:,2);
-line(outx,outy,'marker','o','markerfacecolor','b','markersize',4,'color','b')
+%%%%line(outx,outy,'marker','o','markerfacecolor','b','markersize',4,'color','b')
 
 
     

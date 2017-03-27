@@ -3,7 +3,7 @@ function cutlinedisp( inpx,inpy,theta,sw )
 %   This function use to check if the tangent is correct after the pathjudger.
 dist = 40;
 if sw
-    for m = 1:length(inpx)-1
+    for m = 1:length(inpx)
         cutx1 = -dist/2*cos(theta(m))+inpx(m);
         cuty1 = -dist/2*sin(theta(m))+inpy(m);    
         cutx2 = dist/2*cos(theta(m))+inpx(m);
