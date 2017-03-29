@@ -22,7 +22,7 @@ function varargout = carControl(varargin)
 
 % Edit the above text to modify the response to help carControl
 
-% Last Modified by GUIDE v2.5 26-Mar-2017 15:50:20
+% Last Modified by GUIDE v2.5 27-Mar-2017 20:13:34
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -153,19 +153,20 @@ end
 if get(handles.getrefbtn,'value')&& ...          %path_painter选中
         strcmp(get(gco,'Tag'),'map_axes') && ...         %鼠标在map里面
             strcmp(get(gcf,'selectiontype'),'normal')         %左键选择
+%        tic
         loc = get(handles.map_axes,'currentpoint');
         for n = 2:length(pathX);
             radtemp = tangent(n) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
             ydiff = -sin(radtemp)*(loc(1)-pathX(n))+cos(radtemp)*(loc(3)-pathY(n));
             dist = norm([loc(1)-pathX(n),loc(3)-pathY(n)]);
-            if ydiff<0 && dist < 200
+            if ydiff<0 && dist > 200 && n > getappdata(gca,'refpointnum')
+%                toc
                 set(findobj('tag','refpoint'),'visible','on','xdata',pathX(n),'ydata',pathY(n));
-%                 pathX(n)
-%                 pathY(n)
-%                 tangent(n)
+                setappdata(gca,'refpointnum',n);
                 break;
             end
         end
+ %       toc
 end
 
 
@@ -252,10 +253,14 @@ state = get(hObject,'value');
 if state
     set(hObject,'string','结束目标点获取');
     patch('xdata',0,'ydata',0,'Marker','o','edgecolor','r','visible','off','tag','refpoint');
+    setappdata(gca,'refpointnum',1);
+    setappdata(gca,'curvpointnum',1);    
 %    setappdata(hObject,'getrefIP',true);
 else
     set(hObject,'string','开始目标点获取');
     delete(findobj('tag','refpoint'));
+    rmappdata(gca,'refpointnum');
+    rmappdata(gca,'curvpointnum');
 %    setappdata(hObject,'getrefIP',false);
 end
 
@@ -265,14 +270,150 @@ function pathjudger_Callback(hObject, eventdata, handles)
 % hObject    handle to pathjudger (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-global pathX
-global pathY
-global tangent
+global pathX;
+global pathY;
+global tangent;
+global curX;
+global curY;
+global currad;
+global curtan;
 hline = findobj(handles.map_axes,'Tag','setPath');
 pathX=get(hline,'xdata');
 pathY=get(hline,'ydata');
 [pathX,pathY,tangent] = pathjudger(pathX,pathY);
+assignin('base','sox',pathX);
+assignin('base','soy',pathY);
+assignin('base','tangent',tangent);
 delete(findobj(handles.map_axes,'Tag','setPath'));
 line(pathX,pathY,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
+[curX,curY,currad,curtan] = pathcurv(pathX,pathY,20);
 
 
+% --- Executes on button press in pathfollowbtn.
+function pathfollowbtn_Callback(hObject, eventdata, handles)
+% hObject    handle to pathfollowbtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of pathfollowbtn
+global carposX;
+global carposY;
+global carposYaw;
+global refpointfeq;
+global curvpointfeq;
+state = get(hObject,'value');
+if state
+    set(hObject,'string','结束路径跟踪');
+    carposX = [0,0];
+    carposY = [0,0];
+    carposYaw = 0;
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','Tag','motionpath');
+%    patch('xdata',0,'ydata',0,'Marker','o','edgecolor','m','visible','off','tag','mobilerbt');
+    patch('xdata',0,'ydata',0,'Marker','o','edgecolor','r','visible','off','tag','refpoint');
+    refpointfeq = 1;
+    curvpointfeq = 1;
+    setappdata(handles.map_axes,'refpointfeq',1);
+    setappdata(handles.map_axes,'curvpointnum',1);
+    t = timer('BusyMode','error','ExecutionMode','fixedRate',...
+        'Period',0.08,'TimerFcn',{@following,handles},'Tag','pathfollow');
+    start(t);
+else
+    set(hObject,'string','开始路径跟踪');
+%    delete(findobj('tag','mobilerbt'));
+    delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));  
+    delete(findobj('tag','refpoint'));
+    rmappdata(handles.map_axes,'refpointfeq');
+    rmappdata(handles.map_axes,'curvpointnum');
+    t = timerfind('Tag','pathfollow');
+    stop(t);
+    delete(t);
+end
+
+function following (obj,~,handles)
+global pathX;
+global pathY;
+global tangent;
+global carposX;
+global carposY;
+global carposYaw;
+global curX;
+global curY;
+global currad;
+global curtan;
+global refpointfeq
+global curvpointfeq
+%linespd = 0;
+maxspd = 30; %mm/100ms
+minspd = 0;
+%%%%%%%%%%%%%%%%%获取参考目标点，获取路径弯曲程度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    for n = 2:length(pathX);
+        radtemp = tangent(n) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
+        ydiff = -sin(radtemp)*(carposX(1)-pathX(n))+cos(radtemp)*(carposY(1)-pathY(n));
+        dist = norm([carposX(1)-pathX(n),carposY(1)-pathY(n)]);
+        if ydiff<0 && dist > 200 && n > getappdata(handles.map_axes,'refpointfeq')
+%        if ydiff<0 && dist > 200 && n > refpointfeq            
+%        if ydiff<0 && dist > 200 
+            set(findobj('tag','refpoint'),'visible','on','xdata',pathX(n),'ydata',pathY(n));
+            followref = [pathX(n),pathY(n),tangent(n)];        %path following ref point
+            setappdata(handles.map_axes,'refpointfeq',n);
+%            refpointfeq=n
+            break;
+        end
+    end
+    xdiff = abs(cos(radtemp)*(carposX(1)-pathX(n))+sin(radtemp)*(carposY(1)-pathY(n)));
+    for m = 2:length(curX);
+        radtemp = curtan(m) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
+        ydiff = -sin(radtemp)*(carposX(1)-curX(m))+cos(radtemp)*(carposY(1)-curY(m));
+        dist = norm([carposX(1)-curX(m),carposY(1)-curY(m)]);
+        if ydiff<0 && dist > 100 && m > getappdata(handles.map_axes,'curvpointnum')
+ %       if ydiff<0 && dist > 100 && m > curvpointfeq
+ %       if ydiff<0 && dist > 100
+%            set(findobj('tag','refpoint'),'visible','on','xdata',pathX(n),'ydata',pathY(n));
+            curvref = [curX(m),curY(m),sum(currad(m:1:m+5))];            %path curv ref point
+            setappdata(handles.map_axes,'curvpointnum',m);
+%            curvpointfeq=m
+            break;
+        end
+    end
+%%%%%%%%%%%%%%%%%%%%%计算变换后的参考方向%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    lambda = 2;
+    Kxdiff = 30;
+    gamma = 1/(pi/2+atan(lambda));
+    refangle = followref(3) + (carposYaw - followref(3)) * gamma * (atan(Kxdiff*xdiff-lambda)-atan(lambda));
+%%%%%%%%%%%%%%%%%%%%%计算期望线速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    k1 = 0.05;
+    k2 = 0.6;
+    linespd = (1-k1*(carposYaw-refangle)-k2*curvref(3))*maxspd;
+    if linespd <= minspd
+        linespd = minspd;
+    end
+%%%%%%%%%%%%%%%%%%%%计算期望角速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    deltarad = carposYaw - refangle;
+    k3 = 12;
+    lAngSpd = linespd + k3*deltarad;
+    if lAngSpd > maxspd
+        lAngSpd = maxspd;
+    elseif lAngSpd < minspd
+        lAngSpd = 0;
+    end
+    rAngSpd = linespd - k3*deltarad;
+    if rAngSpd > maxspd
+        rAngSpd = maxspd;
+    elseif rAngSpd < minspd
+        rAngSpd = 0;
+    end
+    dif = carkine(lAngSpd,rAngSpd,carposYaw)*obj.period;
+    carposX = [carposX(1)+dif(1),carposX];
+    carposY = [carposY(1)+dif(2),carposY];
+    tYaw = carposYaw+dif(3);
+    if tYaw>=2*pi
+        tYaw = tYaw-2*pi;
+    elseif tYaw<=-2*pi
+        tYaw = tYaw+2*pi;
+    end
+    carposYaw =  tYaw;
+%%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');
+%    set(findobj('tag','mobilerbt'),'visible','on','xdata',carposX,'ydata',carposY);
+    
