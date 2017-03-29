@@ -1,4 +1,4 @@
-function [ outx,outy,outcur ] = pathcurv( inpx,inpy,diststd )
+function [ outx,outy,outcur,outtan ] = pathcurv( inpx,inpy,diststd )
 %PATHCURV Summary of this function goes here
 %   
     refp = [inpx,inpy];         %参考目标点reference point
@@ -17,12 +17,15 @@ function [ outx,outy,outcur ] = pathcurv( inpx,inpy,diststd )
 %            pause();
             crtspot(1) = crtspot(1) + dist*cos(coner);         %x
             crtspot(2) = crtspot(2) + dist*sin(coner);         %y
-            patch('xdata',crtspot(1),'ydata',crtspot(2),'marker','o','edgecolor','m');
+%%%%%%%%%%%%%%%%%%用于DEBUG，显示采样点%%%%%%%%%%%%%%%%%%%%%%%%%%
+%            patch('xdata',crtspot(1),'ydata',crtspot(2),'marker','o','edgecolor','m');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             dist = diststd;
  %           dist = norm(crtspot - refp(n,:)) - dist;
             outx(m) = crtspot(1);
             outy(m) = crtspot(2);
             outcur(m) = curacc;
+            outtan(m) = coner;
             curacc = 0;
             m = m + 1;
         elseif norm(crtspot - refp(n,:)) < dist
@@ -44,15 +47,22 @@ function [ outx,outy,outcur ] = pathcurv( inpx,inpy,diststd )
             outx(m) = crtspot(1);
             outy(m) = crtspot(2);
             outcur(m) = curacc;
+            outtan(m) = vec2rad(a,b);         %下面这段条件语句用来获得目标点的方向
+            if(outtan(m)<pi)
+                outtan(m) = vec2rad([1,0],b) + (pi-outtan(m))/2;
+            else
+                outtan(m) = vec2rad([1,0],b) - (outtan(m)-pi)/2;
+            end
             curacc = 0;
             m = m + 1;
         end
     end
-    outx(m) = refp(length(inpx),1);               %这里index不能是m+1，应该是m，因为在while中已经进行过+1工作了
-    outy(m) = refp(length(inpx),2);               %这里index不能是m+1，应该是m，因为在while中已经进行过+1工作了
+    outx(m) = refp(length(inpx),1);               %补充最后一个点，这里index不能是m+1，应该是m，因为在while中已经进行过+1工作了
+    outy(m) = refp(length(inpx),2);               %补充最后一个点，这里index不能是m+1，应该是m，因为在while中已经进行过+1工作了
     outcur(m) = 0;
-    outx = [0,outx]';
+    outtan(m) = vec2rad([1,0],[outx(m)-outx(m-1),outy(m)-outy(m-1)]);
+    outx = [0,outx]';                             %补充第一个点
     outy = [0,outy]';
     outcur = [0,outcur]';                          %这里可以设置第一个夹角，先设置为0（其实用不上这个点，但是为了程(qiang)序(po)完(zheng)整）
+    outtan = [0,outtan]';
 end
-
