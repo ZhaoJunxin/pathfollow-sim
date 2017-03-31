@@ -371,7 +371,7 @@ if ydiff >0
     for m = curvpointnum:length(curX);
         radtemp = curtan(m) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
         ydiff = -sin(radtemp)*(carposX(1)-curX(m))+cos(radtemp)*(carposY(1)-curY(m));
-        dist = norm([carposX(1)-curX(m),carposY(1)-curY(m)]);
+%        dist = norm([carposX(1)-curX(m),carposY(1)-curY(m)]);
 %        if ydiff<0 && dist > 20 && m > getappdata(handles.map_axes,'curvpointnum')
         if ydiff<0 && m > getappdata(handles.map_axes,'curvpointnum')            
             curvref = [curX(m),curY(m),sum(currad(m:1:m+6))];            %path curv ref point
@@ -381,9 +381,9 @@ if ydiff >0
     end
 end
 %%%%%%%%%%%%%%%%%%%%%计算变换后的参考方向%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    carposYaw = carposYaw
-    folrefrad = followref(3)
-    deltarad = carposYaw - followref(3)
+%    carposYaw = carposYaw
+%    folrefrad = followref(3)
+    deltarad = carposYaw - followref(3);
     if deltarad > pi
         deltarad = deltarad - 2*pi;
     elseif deltarad < -pi
@@ -392,12 +392,12 @@ end
     lambda = 10;
     Kxdiff = 40;
     gamma = 1/(pi/2+atan(lambda));
-    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)-atan(lambda))
+    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)-atan(lambda));
 %     if refangle > pi 
 %         refangle = refangle-2*pi;
 %     end
 %%%%%%%%%%%%%%%%%%%%%计算期望线速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    refdeltarad = carposYaw - refangle
+    refdeltarad = carposYaw - refangle;
     if refdeltarad > pi
         refdeltarad = refdeltarad-2*pi;
     elseif refdeltarad < -pi
@@ -405,28 +405,31 @@ end
     end
     k1 = 0.2;
     k2 = 0.7;
+%    curref = curvref(3)
     linespd = (1-k1*(refdeltarad)-k2*curvref(3))*maxspd;
     if linespd <= minspd
         linespd = minspd;
     end
 %%%%%%%%%%%%%%%%%%%%计算期望角速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    refdeltarad = refdeltarad
+%    refdeltarad = refdeltarad
     k3 = 60;
-    lAngSpd = linespd + (k3*refdeltarad)
+    lAngSpd = linespd + (k3*refdeltarad);
     if lAngSpd > maxspd
         lAngSpd = maxspd;
     elseif lAngSpd < minspd
         lAngSpd = 0;
     end
-    rAngSpd = linespd - (k3*refdeltarad)
+    rAngSpd = linespd - (k3*refdeltarad);
     if rAngSpd > maxspd
         rAngSpd = maxspd;
     elseif rAngSpd < minspd
         rAngSpd = 0;
     end
     dif = carkine(lAngSpd,rAngSpd,carposYaw)*obj.period;
-    carposX = [carposX(1)+dif(1),carposX]
-    carposY = [carposY(1)+dif(2),carposY]
+%    dif1 = dif(1)
+%    dif2 = dif(2)
+    carposX = [carposX(1)+dif(1),carposX];
+    carposY = [carposY(1)+dif(2),carposY];
     tYaw = carposYaw+dif(3);
     if tYaw>=2*pi
         tYaw = tYaw-2*pi;
@@ -440,6 +443,6 @@ end
 %%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
     line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');
-    delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
+%    delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
     patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
      

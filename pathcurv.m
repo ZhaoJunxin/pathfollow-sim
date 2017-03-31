@@ -65,4 +65,7 @@ function [ outx,outy,outcur,outtan ] = pathcurv( inpx,inpy,diststd )
     outy = [0,outy]';
     outcur = [0,outcur]';                          %这里可以设置第一个夹角，先设置为0（其实用不上这个点，但是为了程(qiang)序(po)完(zheng)整）
     outtan = [0,outtan]';
+%计算acos\asin反三角函数的过程中，由于误差使得输入的变量在[-1,1]的范围之外，最终将导致结果出现复数虚部，影响运算结果，这里用real()只保留实部    
+    outcur = real(outcur);                          
+    outtan = real(outtan);
 end
