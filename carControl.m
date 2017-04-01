@@ -281,12 +281,16 @@ hline = findobj(handles.map_axes,'Tag','setPath');
 pathX=get(hline,'xdata');
 pathY=get(hline,'ydata');
 [pathX,pathY,tangent] = pathjudger(pathX,pathY);
-assignin('base','sox',pathX);
-assignin('base','soy',pathY);
+assignin('base','pathX',pathX);
+assignin('base','pathY',pathY);
 assignin('base','tangent',tangent);
 delete(findobj(handles.map_axes,'Tag','setPath'));
 line(pathX,pathY,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
 [curX,curY,currad,curtan] = pathcurv(pathX,pathY,20);
+assignin('base','curX',curX);
+assignin('base','curY',curY);
+assignin('base','currad',currad);
+assignin('base','curtan',curtan);
 
 
 % --- Executes on button press in pathfollowbtn.
@@ -306,15 +310,16 @@ if state
     carposY = [0,0];
     carposYaw = 0;
     line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','Tag','motionpath');
-    patch('xdata',0,'ydata',0,'Marker','o','edgecolor','r','tag','mobilerbt');
+     patch('xdata',0,'ydata',0,'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
     setappdata(handles.map_axes,'refpointfeq',1);
     setappdata(handles.map_axes,'curvpointnum',1);
+    setappdata(handles.map_axes,'curvsecnum',6);
     t = timer('BusyMode','error','ExecutionMode','fixedRate',...
         'Period',0.08,'TimerFcn',{@following,handles},'Tag','pathfollow');
     start(t);
 else
     set(hObject,'string','开始路径跟踪');
-%    delete(findobj('tag','mobilerbt'));
+    delete(findobj('tag','mobilerbt'));
     delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line')); 
     delete(findobj('parent',handles.map_axes,'Tag','mobilerbt','type','patch'));
     delete(findobj('tag','refpoint'));
@@ -340,18 +345,35 @@ global curtan;
 maxspd = 30; %mm/100ms
 minspd = 0;
 %%%%%%%%%%%%%%%%%获取参考目标点，获取路径弯曲程度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-refpointfeq = getappdata(handles.map_axes,'refpointfeq');
+%可修改参数有：目标点：1.决定是否改变目标点的判定距离  2.目标点选取时的最近距离
+%             道路弯曲程度：1.弯曲程度切分距离   2.弯曲程度选取范围-curvsecnum
+refpointfeq = getappdata(handles.map_axes,'refpointfeq')
+curvpointnum = getappdata(handles.map_axes,'curvpointnum')
 followref = [pathX(refpointfeq),pathY(refpointfeq),tangent(refpointfeq)];
 radtemp = followref(3) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
 ydiff = -sin(radtemp)*(carposX(1)-followref(1))+cos(radtemp)*(carposY(1)-followref(2));
+% if refpointfeq == length(pathX) && ydiff >0
+%     t = timerfind('Tag','pathfollow');
+%     stop(t);
+%     %delete(t);
+%     return;                 %停止定时器后，还需要中断函数运行才可以
+% end
 dist = norm([carposX(1)-followref(1),carposY(1)-followref(2)]);
+if refpointfeq == length(pathX) || curvpointnum == length(curX)
+    if ydiff >0 || dist < 10
+    t = timerfind('Tag','pathfollow');
+    stop(t);
+    %delete(t);
+    return;                 %停止定时器后，还需要中断函数运行才可以
+    end
+end
 xdiff = abs(cos(radtemp)*(carposX(1)-followref(1))+sin(radtemp)*(carposY(1)-followref(2)));
 if ydiff >0 || dist <10
     for n = refpointfeq:length(pathX);
         radtemp = tangent(n) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
         ydiff = -sin(radtemp)*(carposX(1)-pathX(n))+cos(radtemp)*(carposY(1)-pathY(n));
         dist = norm([carposX(1)-pathX(n),carposY(1)-pathY(n)]);
-        if ydiff<0 && dist > 70 && n > getappdata(handles.map_axes,'refpointfeq')
+        if ydiff<0 && dist > 50 && n > getappdata(handles.map_axes,'refpointfeq')
             set(findobj('tag','refpoint'),'visible','on','xdata',pathX(n),'ydata',pathY(n));
             followref = [pathX(n),pathY(n),tangent(n)];        %path following ref point
             setappdata(handles.map_axes,'refpointfeq',n);
@@ -361,26 +383,34 @@ if ydiff >0 || dist <10
     xdiff = abs(cos(radtemp)*(carposX(1)-pathX(n))+sin(radtemp)*(carposY(1)-pathY(n)));    
 end
     
-curvpointnum = getappdata(handles.map_axes,'curvpointnum');
-curvref = [curX(curvpointnum),curY(curvpointnum),sum(currad(curvpointnum:1:curvpointnum+5))];
-radtemp = curtan(curvpointnum) - pi/2;      
+%%curvpointnum = getappdata(handles.map_axes,'curvpointnum')
+curvsecnum = getappdata(handles.map_axes,'curvsecnum');
+curvref = [curX(curvpointnum),curY(curvpointnum),sum(currad(curvpointnum:1:curvpointnum+curvsecnum))];
+radtemp = curtan(curvpointnum) - pi/2;
 ydiff = -sin(radtemp)*(carposX(1)-curvref(1))+cos(radtemp)*(carposY(1)-curvref(2));
 %dist = norm([carposX(1)-curvref(1),carposY(1)-curvref(2)]);
 %if ydiff >0 || dist <20
-if ydiff >0     
+if ydiff >0
     for m = curvpointnum:length(curX);
         radtemp = curtan(m) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
         ydiff = -sin(radtemp)*(carposX(1)-curX(m))+cos(radtemp)*(carposY(1)-curY(m));
 %        dist = norm([carposX(1)-curX(m),carposY(1)-curY(m)]);
 %        if ydiff<0 && dist > 20 && m > getappdata(handles.map_axes,'curvpointnum')
-        if ydiff<0 && m > getappdata(handles.map_axes,'curvpointnum')            
-            curvref = [curX(m),curY(m),sum(currad(m:1:m+6))];            %path curv ref point
+        if ydiff<0 && m > getappdata(handles.map_axes,'curvpointnum')
+            if m+curvsecnum>=length(curX)
+                curvsecnum = length(curX) - m;
+                setappdata(handles.map_axes,'curvsecnum',curvsecnum);
+%                 pathX = length(pathX)
+%                 refpfeq = getappdata(handles.map_axes,'refpointfeq')
+            end
+            curvref = [curX(m),curY(m),sum(currad(m:1:m+curvsecnum))];            %path curv ref point
             setappdata(handles.map_axes,'curvpointnum',m);
             break;
         end
     end
 end
 %%%%%%%%%%%%%%%%%%%%%计算变换后的参考方向%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改的参数： 1.lambda  2.Kxdiff
 %    carposYaw = carposYaw
 %    folrefrad = followref(3)
     deltarad = carposYaw - followref(3);
@@ -397,6 +427,7 @@ end
 %         refangle = refangle-2*pi;
 %     end
 %%%%%%%%%%%%%%%%%%%%%计算期望线速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改的参数： 1.k1-方向角误差的影响系数  2.k2-道路弯曲程度影响系数
     refdeltarad = carposYaw - refangle;
     if refdeltarad > pi
         refdeltarad = refdeltarad-2*pi;
@@ -411,6 +442,7 @@ end
         linespd = minspd;
     end
 %%%%%%%%%%%%%%%%%%%%计算期望角速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改的参数：    1.k3-方向角误差对左右轮差分的影响系数
 %    refdeltarad = refdeltarad
     k3 = 60;
     lAngSpd = linespd + (k3*refdeltarad);
@@ -425,6 +457,7 @@ end
     elseif rAngSpd < minspd
         rAngSpd = 0;
     end
+%%%%%%%%%%%%%%%%%%%输入动力学模型，模拟实际运动%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dif = carkine(lAngSpd,rAngSpd,carposYaw)*obj.period;
 %    dif1 = dif(1)
 %    dif2 = dif(2)
@@ -442,7 +475,8 @@ end
     carposYaw =  tYaw;
 %%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
-    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');
-%    delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
-    patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+%    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath','Marker','o','markersize',2,'Markeredgecolor','r');
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');    
+     delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
+     patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
      
