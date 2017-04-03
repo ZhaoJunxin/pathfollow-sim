@@ -22,7 +22,7 @@ function varargout = carControl(varargin)
 
 % Edit the above text to modify the response to help carControl
 
-% Last Modified by GUIDE v2.5 27-Mar-2017 20:13:34
+% Last Modified by GUIDE v2.5 02-Apr-2017 20:31:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -280,7 +280,9 @@ global curtan;
 hline = findobj(handles.map_axes,'Tag','setPath');
 pathX=get(hline,'xdata');
 pathY=get(hline,'ydata');
-[pathX,pathY,tangent] = pathjudger(pathX,pathY);
+%[pathX,pathY,tangent] = pathjudger(pathX,pathY);
+[pathX,pathY] = pathjudger(pathX,pathY);
+[pathX,pathY,tangent] = pathjudger2(pathX,pathY);
 assignin('base','pathX',pathX);
 assignin('base','pathY',pathY);
 assignin('base','tangent',tangent);
@@ -342,13 +344,15 @@ global curY;
 global currad;
 global curtan;
 %linespd = 0;
-maxspd = 30; %mm/100ms
-minspd = 0;
+maxspd = 20; %rad/s
+minlinespd = 6.5;   %rad/s
+%minspd = 0;
+%tic
 %%%%%%%%%%%%%%%%%获取参考目标点，获取路径弯曲程度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %可修改参数有：目标点：1.决定是否改变目标点的判定距离  2.目标点选取时的最近距离
 %             道路弯曲程度：1.弯曲程度切分距离   2.弯曲程度选取范围-curvsecnum
-refpointfeq = getappdata(handles.map_axes,'refpointfeq')
-curvpointnum = getappdata(handles.map_axes,'curvpointnum')
+refpointfeq = getappdata(handles.map_axes,'refpointfeq');
+curvpointnum = getappdata(handles.map_axes,'curvpointnum');
 followref = [pathX(refpointfeq),pathY(refpointfeq),tangent(refpointfeq)];
 radtemp = followref(3) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
 ydiff = -sin(radtemp)*(carposX(1)-followref(1))+cos(radtemp)*(carposY(1)-followref(2));
@@ -359,8 +363,8 @@ ydiff = -sin(radtemp)*(carposX(1)-followref(1))+cos(radtemp)*(carposY(1)-followr
 %     return;                 %停止定时器后，还需要中断函数运行才可以
 % end
 dist = norm([carposX(1)-followref(1),carposY(1)-followref(2)]);
-if refpointfeq == length(pathX) || curvpointnum == length(curX)
-    if ydiff >0 || dist < 10
+if refpointfeq >= length(pathX)-1 || curvpointnum >= length(curX)-1
+    if ydiff >0 || dist < 50
     t = timerfind('Tag','pathfollow');
     stop(t);
     %delete(t);
@@ -380,7 +384,7 @@ if ydiff >0 || dist <10
             break;
         end
     end
-    xdiff = abs(cos(radtemp)*(carposX(1)-pathX(n))+sin(radtemp)*(carposY(1)-pathY(n)));    
+    xdiff = abs(cos(radtemp)*(carposX(1)-pathX(n))+sin(radtemp)*(carposY(1)-pathY(n)));     %已取abs绝对值
 end
     
 %%curvpointnum = getappdata(handles.map_axes,'curvpointnum')
@@ -411,18 +415,27 @@ if ydiff >0
 end
 %%%%%%%%%%%%%%%%%%%%%计算变换后的参考方向%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %可修改的参数： 1.lambda  2.Kxdiff
+%注：xdiff在上面计算时已经取abs绝对值
+    lambda = 150;
+    Kxdiff = 3;
 %    carposYaw = carposYaw
 %    folrefrad = followref(3)
-    deltarad = carposYaw - followref(3);
-    if deltarad > pi
-        deltarad = deltarad - 2*pi;
-    elseif deltarad < -pi
-        deltarad = 2*pi + deltarad;
+%     deltarad = carposYaw - followref(3);
+%     if deltarad > pi
+%         deltarad = deltarad - 2*pi;
+%     elseif deltarad < -pi
+%         deltarad = 2*pi + deltarad;
+%     end
+    deltacr = vec2rad([1,0],[followref(1) - carposX(1),followref(2) - carposY(1)]);
+    if deltacr > pi
+        deltacr = deltacr - 2*pi;
     end
-    lambda = 10;
-    Kxdiff = 40;
+    deltar = followref(3);
+    deltarad = deltacr - deltar
+    xdiff = xdiff
     gamma = 1/(pi/2+atan(lambda));
-    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)-atan(lambda));
+    followref3 = followref(3)
+    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)+atan(lambda))
 %     if refangle > pi 
 %         refangle = refangle-2*pi;
 %     end
@@ -434,12 +447,12 @@ end
     elseif refdeltarad < -pi
         refdeltarad = 2*pi + refdeltarad;
     end
-    k1 = 0.2;
-    k2 = 0.7;
+    k1 = 0.1;
+    k2 = 0.6;
 %    curref = curvref(3)
-    linespd = (1-k1*(refdeltarad)-k2*curvref(3))*maxspd;
-    if linespd <= minspd
-        linespd = minspd;
+    linespd = (1-k1*abs(refdeltarad)-k2*curvref(3))*maxspd;
+    if linespd <= minlinespd
+        linespd = minlinespd;
     end
 %%%%%%%%%%%%%%%%%%%%计算期望角速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %可修改的参数：    1.k3-方向角误差对左右轮差分的影响系数
@@ -448,13 +461,13 @@ end
     lAngSpd = linespd + (k3*refdeltarad);
     if lAngSpd > maxspd
         lAngSpd = maxspd;
-    elseif lAngSpd < minspd
+    elseif lAngSpd < minlinespd
         lAngSpd = 0;
     end
     rAngSpd = linespd - (k3*refdeltarad);
     if rAngSpd > maxspd
         rAngSpd = maxspd;
-    elseif rAngSpd < minspd
+    elseif rAngSpd < minlinespd
         rAngSpd = 0;
     end
 %%%%%%%%%%%%%%%%%%%输入动力学模型，模拟实际运动%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -473,10 +486,58 @@ end
         tYaw = tYaw +2*pi;
     end
     carposYaw =  tYaw;
+%    toc
 %%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
 %    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath','Marker','o','markersize',2,'Markeredgecolor','r');
     line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');    
      delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
      patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+ 
      
+% --- Executes on button press in pathsavebtn.
+function pathsavebtn_Callback(hObject, eventdata, handles)
+% hObject    handle to pathsavebtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+     hline = findobj(handles.map_axes,'Tag','setPath');
+     linex=get(hline,'xdata');
+     liney=get(hline,'ydata');
+     pathfilename = get(findobj('tag','pathfilename'),'string');
+     save([pathfilename,'.mat'],'linex','liney');
+
+
+% --- Executes on button press in loadpathbtn.
+function loadpathbtn_Callback(hObject, eventdata, handles)
+% hObject    handle to loadpathbtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+    pathfilename = get(findobj('tag','pathfilename'),'string');
+    load([pathfilename,'.mat']);
+    if ~isempty(findobj(handles.map_axes,'Tag','setPath'))        %判断路径存在
+         delete(findobj(handles.map_axes,'Tag','setPath'))          
+    end
+    line(linex,liney,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
+
+
+
+function pathfilename_Callback(hObject, eventdata, handles)
+% hObject    handle to pathfilename (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of pathfilename as text
+%        str2double(get(hObject,'String')) returns contents of pathfilename as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function pathfilename_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to pathfilename (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
