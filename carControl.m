@@ -22,7 +22,7 @@ function varargout = carControl(varargin)
 
 % Edit the above text to modify the response to help carControl
 
-% Last Modified by GUIDE v2.5 03-Apr-2017 11:06:19
+% Last Modified by GUIDE v2.5 13-Apr-2017 20:44:34
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -124,6 +124,8 @@ global iMapY;
 global iMapYaw;
 global pathX;
 global pathY;
+global block;
+global obstacle;
 global tangent;
 if  strcmp(get(gco,'Tag'),'control_axes')
    if strcmp(get(gcf,'selectiontype'),'normal')    %左键开始控制仿真小车运动
@@ -150,7 +152,7 @@ if get(handles.path_painter,'value')&& ...          %path_painter选中
     delete(findobj(handles.map_axes,'Tag','setPath'));        %忘记前任，寻求新换
     line(pathX,pathY,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
 end
-if get(handles.getrefbtn,'value')&& ...          %path_painter选中
+if get(handles.getrefbtn,'value')&& ...          %getrefbtn(get reference button)选中
         strcmp(get(gco,'Tag'),'map_axes') && ...         %鼠标在map里面
             strcmp(get(gcf,'selectiontype'),'normal')         %左键选择
 %        tic
@@ -168,6 +170,38 @@ if get(handles.getrefbtn,'value')&& ...          %path_painter选中
         end
  %       toc
 end
+if get(handles.block_painter,'value')&& ...          %block_painter选中
+        strcmp(get(gco,'Tag'),'map_axes') && ...         %鼠标在map里面
+            strcmp(get(gcf,'selectiontype'),'normal')         %左键选择
+        blockunit = get(handles.block_painter,'userdata');
+        loc = get(handles.map_axes,'currentpoint');
+%        block = [fix(loc(1)/blockunit),fix(loc(3)/blockunit);block];
+        currentblock = [round(loc(1)/blockunit),round(loc(3)/blockunit)];        %round is better than the fix
+        if ~ifexist(currentblock,block)
+            block = [currentblock;block];
+            rectangle('Position',[currentblock(1,1)*blockunit-blockunit/2,...
+                currentblock(1,2)*blockunit-blockunit/2,blockunit,blockunit],...
+                     'facecolor','b','hittest','off');
+        end
+        block = unique(block,'rows');
+end
+if get(handles.block_cleaner,'value')&& ...          %block_painter选中
+        strcmp(get(gco,'Tag'),'map_axes') && ...         %鼠标在map里面
+            strcmp(get(gcf,'selectiontype'),'normal') && ...        %左键选择
+                ~isempty(block)
+        blockunit = get(handles.block_painter,'userdata');
+        loc = get(handles.map_axes,'currentpoint');
+        currentblock = [round(loc(1)/blockunit),round(loc(3)/blockunit)];        %round is better than the fix
+        if ifexist(currentblock,block)
+            ind = ifexist(currentblock,block);
+            block(ind,:) = [];
+%             get(findobj('type','rectangle','position',[currentblock(1,1)*blockunit-blockunit/2,...
+%                 currentblock(1,2)*blockunit-blockunit/2,blockunit,blockunit],'facecolor','b'),'parent')
+            delete(findobj('type','rectangle','position',[currentblock(1,1)*blockunit-blockunit/2,...
+                currentblock(1,2)*blockunit-blockunit/2,blockunit,blockunit],'facecolor','b'));
+        end
+        block = unique(block,'rows');
+end
 
 
 % --- Executes on mouse motion over figure - except title and menu.
@@ -177,6 +211,7 @@ function figure1_WindowButtonMotionFcn(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 global pathX;
 global pathY;
+global block;
 if getappdata(handles.figure1,'mapAxesIP') && ...   %判断鼠标是否在map上按下了左键<-这已经对path_painter选中进行判断了
         strcmp(get(gca,'Tag'),'map_axes')           %判断鼠标现在是否在map上
     loc = get(handles.map_axes,'currentpoint');
@@ -185,6 +220,26 @@ if getappdata(handles.figure1,'mapAxesIP') && ...   %判断鼠标是否在map上按下了左
     delete(findobj(handles.map_axes,'Tag','setPath'));
     line(pathX,pathY,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
 end
+%%%%%%%%%%%%%%%%障碍绘制，辅助显示，注意：WindowButtonMotionFcn需要按下右键才会调用************
+if get(handles.block_painter,'value')||...
+     get(handles.block_cleaner,'value')&& ...          %block_painter选中
+        strcmp(get(gco,'Tag'),'map_axes')          %鼠标在map里面        
+    loc = get(handles.map_axes,'currentpoint'); 
+    blockunit = get(handles.block_painter,'userdata');
+    roundloc = [round(loc(1)/blockunit),round(loc(3)/blockunit)];        %round is better than the fix 
+    delete(findobj(handles.map_axes,'Tag','assiblock'));
+    if get(handles.block_painter,'value')
+        rectangle('Position',[roundloc(1,1)*blockunit-blockunit/2,...
+            roundloc(1,2)*blockunit-blockunit/2,blockunit,blockunit],...
+                 'facecolor','c','hittest','off','tag','assiblock');
+    elseif get(handles.block_cleaner,'value') && ~isempty(block)
+        rectangle('Position',[roundloc(1,1)*blockunit-blockunit/2,...
+            roundloc(1,2)*blockunit-blockunit/2,blockunit,blockunit],...
+                 'facecolor','y','hittest','off','tag','assiblock');
+    end
+%    set(handles.map_axes,'currentpoint',loc); 
+end
+
 
 
 % --- Executes on mouse press over figure background, over a disabled or
@@ -431,11 +486,11 @@ end
         deltacr = deltacr - 2*pi;
     end
     deltar = followref(3);
-    deltarad = deltacr - deltar
-    xdiff = xdiff
+    deltarad = deltacr - deltar;
+%    xdiff = xdiff
     gamma = 1/(pi/2+atan(lambda));
-    followref3 = followref(3)
-    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)+atan(lambda))
+%    followref3 = followref(3)
+    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)+atan(lambda));
 %     if refangle > pi 
 %         refangle = refangle-2*pi;
 %     end
@@ -504,7 +559,11 @@ function pathsavebtn_Callback(hObject, eventdata, handles)
      linex=get(hline,'xdata');
      liney=get(hline,'ydata');
      pathfilename = get(findobj('tag','pathfilename'),'string');
-     save([pathfilename,'.mat'],'linex','liney');
+     if ~isempty(pathfilename)
+        save([pathfilename,'.mat'],'linex','liney'); %这里会显示上面linex liney没用上，不过确实要这么写
+     else
+         error('老哥输个文件名呗')
+     end
 
 
 % --- Executes on button press in loadpathbtn.
@@ -513,9 +572,153 @@ function loadpathbtn_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
     pathfilename = get(findobj('tag','pathfilename'),'string');
-    load([pathfilename,'.mat']);
-    if ~isempty(findobj(handles.map_axes,'Tag','setPath'))        %判断路径存在
-         delete(findobj(handles.map_axes,'Tag','setPath'))          
+    if ~isempty(pathfilename)
+        load([pathfilename,'.mat']);
+        if ~isempty(findobj(handles.map_axes,'Tag','setPath'))        %判断路径存在
+             delete(findobj(handles.map_axes,'Tag','setPath'))          
+        end
+        line(linex,liney,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
+    else
+         error('老哥输个文件名呗')
     end
-    line(linex,liney,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
 
+
+% --- Executes on button press in block_painter.
+function block_painter_Callback(hObject, eventdata, handles)
+% hObject    handle to block_painter (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of block_painter
+if get(handles.block_cleaner,'value')
+    return;
+end
+global block;               %visible part
+global obstacle;            %visible & invisible part
+state = get(hObject,'value');
+blockunit = 20;
+radius = 100;
+if state
+    set(get(handles.map_axes,'parent'),'pointer','fullcrosshair');
+    obstacle = [[-1,0];obstacle];
+    blockcircle = circlemaker(radius,blockunit);
+    obstacle = [blockcircle(:,1),blockcircle(:,2)+(radius/blockunit)+1;obstacle];
+    obstacle = [blockcircle(:,1),blockcircle(:,2)-((radius/blockunit)+1);obstacle];    
+    obstacle = unique(obstacle,'rows');
+    set(hObject,'string','结束障碍绘制');
+    set(hObject,'userdata',blockunit);
+    setappdata(handles.block_painter,'radius',radius);
+    setappdata(handles.block_painter,'blockunit',blockunit); 
+    setappdata(handles.map_axes,'blockcircle',blockcircle);
+else
+    set(hObject,'string','开始障碍绘制');
+    blockcircle = getappdata(handles.map_axes,'blockcircle');
+    obstacle = [zeros(size(blockcircle,1)*size(block,1),2);obstacle];
+    for n = 1:size(block,1)
+    obstacle((n-1)*size(blockcircle,1)+1:n*size(blockcircle,1),:) = [blockcircle(:,1)+block(n,1),blockcircle(:,2)+block(n,2)];
+    end
+    obstacle = unique(obstacle,'rows');     
+    assignin('base','lastblock',block);
+    assignin('base','lastobstacle',obstacle);
+    set(get(handles.map_axes,'parent'),'pointer','arrow');
+end
+
+
+% --- Executes on button press in clear_block.
+function clear_block_Callback(hObject, eventdata, handles)
+% hObject    handle to clear_block (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global block;
+global obstacle;
+delete(findobj(handles.map_axes,'type','rectangle'));
+block = [];
+obstacle = [];
+
+
+% --- Executes on button press in block_cleaner.
+function block_cleaner_Callback(hObject, eventdata, handles)
+% hObject    handle to block_cleaner (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of block_cleaner
+if get(handles.block_painter,'value')
+    return;
+end
+global block;               %visible part
+global obstacle;            %visible & invisible part
+state = get(hObject,'value');
+% blockunit = 20;
+% radius = 100;
+% blockcircle = circlemaker(radius,blockunit);
+    blockunit = getappdata(handles.block_painter,'blockunit');
+    blockcircle = getappdata(handles.map_axes,'blockcircle');
+    radius = getappdata(handles.block_painter,'radius');
+    if state && ~isempty(block)
+        set(hObject,'string','结束障碍擦除');   
+        set(get(handles.map_axes,'parent'),'pointer','fullcrosshair');
+        obstacle = [-1,0];
+        obstacle = [blockcircle(:,1),blockcircle(:,2)+(radius/blockunit)+1;obstacle];
+        obstacle = [blockcircle(:,1),blockcircle(:,2)-((radius/blockunit)+1);obstacle];    
+        obstacle = unique(obstacle,'rows');
+    else
+        set(hObject,'string','开始障碍擦除');
+        obstacle = [zeros(size(blockcircle,1)*size(block,1),2);obstacle];
+        for n = 1:size(block,1)
+        obstacle((n-1)*size(blockcircle,1)+1:n*size(blockcircle,1),:) = ...
+            [blockcircle(:,1)+block(n,1),blockcircle(:,2)+block(n,2)];
+        end
+        obstacle = unique(obstacle,'rows');     
+        set(get(handles.map_axes,'parent'),'pointer','arrow');
+    end
+
+
+% --- Executes on button press in saveblockbtn.
+function saveblockbtn_Callback(hObject, eventdata, handles)
+% hObject    handle to saveblockbtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global block;
+global obstacle;
+     pathfilename = get(findobj('tag','pathfilename'),'string');
+     if ~isempty(pathfilename)
+        save([pathfilename,'.mat'],'block','obstacle');
+        assignin('base','lastblock',block);
+        assignin('base','lastobstacle',obstacle);
+     else
+         error('老哥输个文件名呗')
+     end
+
+% --- Executes on button press in loadblockbtn.
+function loadblockbtn_Callback(hObject, eventdata, handles)
+% hObject    handle to loadblockbtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% 障碍读取部分，这里直接读取了block和obstacle两个数组，其实只读一个block就可以得到obstacle了
+% 算了，我还是写了吧，我只是觉得代码太长不好看不想写而已，不是偷懒噢
+global block;
+global obstacle;
+blockunit = 20;
+radius = 100;
+blockcircle = circlemaker(radius,blockunit);
+    pathfilename = get(findobj('tag','pathfilename'),'string');
+    if ~isempty(pathfilename)
+        temp = load([pathfilename,'.mat']);        %block & obstacle
+        if ~isempty(temp.block)
+            block = temp.block;
+            obstacle = zeros(size(blockcircle,1)*size(block,1),2);
+            for n = 1:size(block,1)
+            obstacle((n-1)*size(blockcircle,1)+1:n*size(blockcircle,1),:) = ...
+                [blockcircle(:,1)+block(n,1),blockcircle(:,2)+block(n,2)];
+            end
+            delete(findobj(handles.map_axes,'type','rectangle'));
+            for n = 1:size(block,1)
+                rectangle('Position',[block(n,1)*blockunit-blockunit/2,...
+                        block(n,2)*blockunit-blockunit/2,blockunit,blockunit],...
+                             'facecolor','b','hittest','off','parent',handles.map_axes);
+            end
+        end
+    else
+         error('老哥输个文件名呗')
+    end
