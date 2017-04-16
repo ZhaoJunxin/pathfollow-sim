@@ -6,9 +6,9 @@ function [ outx,outy,theta ] = pathjudger(inpx,inpy)
 %   inpx为画板中直接绘制图像的X轴数据，inpy为Y轴数据
 %   函数中有line函数用于debug查看效果，现在注释掉了
 %%%%%%%%以下部分用于将x,y数据合并处理，并删除其中的重复数据%%%%%%%%%
-linearray = [inpx',inpy'];
+linearray = round([inpx',inpy']);
 %linearray = flip(linearray);
-linearray = round(flip(linearray));
+%linearray = round(flip(linearray));
 n = 0;
 for i=1:length(linearray)-1
     j = i-n;

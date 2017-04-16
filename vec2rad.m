@@ -4,7 +4,7 @@ function  radcw  = vec2rad( vec1,vec2 )
     %   This function return the clockwise radian between vec1 and vec2
     %
     %   by:Zhao Junxin 2017/3/17
-    if vec1 == vec2
+    if norm(vec1 - vec2) <= eps
         radcw = 0;
         return
     end
