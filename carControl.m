@@ -22,7 +22,7 @@ function varargout = carControl(varargin)
 
 % Edit the above text to modify the response to help carControl
 
-% Last Modified by GUIDE v2.5 15-Apr-2017 15:41:06
+% Last Modified by GUIDE v2.5 20-Apr-2017 10:11:31
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -402,9 +402,9 @@ global carposYaw;
 state = get(hObject,'value');
 if state
     set(hObject,'string','结束路径跟踪');
-    carposX = [0,0];
-    carposY = [0,0];
-    carposYaw = 0;
+    carposX = 0;        %数组
+    carposY = 0;        %数组
+    carposYaw = 0;      %数组
     line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','Tag','motionpath');
      patch('xdata',0,'ydata',0,'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
     setappdata(handles.map_axes,'refpointfeq',1);
@@ -439,7 +439,7 @@ global currad;
 global curtan;
 %linespd = 0;
 maxspd = 20; %rad/s
-minlinespd = 6.5;   %rad/s
+minlinespd = 6;   %rad/s
 %minspd = 0;
 tic
 %%%%%%%%%%%%%%%%%获取参考目标点，获取路径弯曲程度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -460,7 +460,9 @@ if refpointfeq >= length(pathX) || curvpointnum >= length(curX)-1
     if ydiff >0 || dist < 50
     t = timerfind('Tag','pathfollow');
     stop(t);
-    %delete(t);
+    assignin('base','carposX',carposX);
+    assignin('base','carposY',carposY);
+%    delete(t);             %delete在pathfollowbtn中完成
     return;                 %停止定时器后，还需要中断定时器函数运行才可以
     end
 end
@@ -534,7 +536,7 @@ end
 %     end
 %%%%%%%%%%%%%%%%%%%%%计算期望线速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %可修改的参数： 1.k1-方向角误差的影响系数  2.k2-道路弯曲程度影响系数
-    refdeltarad = carposYaw - refangle;
+    refdeltarad = carposYaw(1) - refangle;
     if refdeltarad > pi
         refdeltarad = refdeltarad-2*pi;
     elseif refdeltarad < -pi
@@ -551,13 +553,13 @@ end
 %可修改的参数：    1.k3-方向角误差对左右轮差分的影响系数
 %    refdeltarad = refdeltarad
     k3 = 60;
-    lAngSpd = linespd + (k3*refdeltarad);
+    lAngSpd = round(linespd + (k3*refdeltarad));
     if lAngSpd > maxspd
         lAngSpd = maxspd;
     elseif lAngSpd < minlinespd
         lAngSpd = 0;
     end
-    rAngSpd = linespd - (k3*refdeltarad);
+    rAngSpd = round(linespd - (k3*refdeltarad));
     if rAngSpd > maxspd
         rAngSpd = maxspd;
     elseif rAngSpd < minlinespd
@@ -566,12 +568,12 @@ end
 %     lAngSpd = lAngSpd
 %     rAngSpd = rAngSpd
 %%%%%%%%%%%%%%%%%%%输入动力学模型，模拟实际运动%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dif = carkine(lAngSpd,rAngSpd,carposYaw)*obj.period;
+    dif = carkine(lAngSpd,rAngSpd,carposYaw(1))*obj.period;
 %     dif1 = dif(1)
 %     dif2 = dif(2)
     carposX = [carposX(1)+dif(1),carposX];
     carposY = [carposY(1)+dif(2),carposY];
-    tYaw = carposYaw+dif(3);
+    tYaw = carposYaw(1)+dif(3);
     if tYaw>=2*pi
         tYaw = tYaw-2*pi;
     elseif tYaw<=-2*pi
@@ -580,7 +582,7 @@ end
     if tYaw < 0                                  %角度统一使用0~2pi范围
         tYaw = tYaw +2*pi;
     end
-    carposYaw =  tYaw;
+    carposYaw =  [tYaw,carposYaw];
     toc
 %%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
@@ -855,3 +857,358 @@ if ~isempty(findobj(handles.map_axes,'Tag','setPath'))        %判断路径存在
      delete(findobj(handles.map_axes,'Tag','setPath'))          
 end
 line(linex,liney,'parent',handles.map_axes,'erasemode','normal','tag','setPath');
+
+
+% --- Executes on button press in serialtest.
+function serialtest_Callback(hObject, eventdata, handles)
+% hObject    handle to serialtest (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of serialtest
+%global com;
+global carposX;
+global carposY;
+global carposYaw;
+state = get(hObject,'value');
+if state
+    %%%%%%%%%%%%%基础准备，包括绘图准备%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','结束串口测试');
+    carposX = 0;        %数组
+    carposY = 0;        %数组
+    carposYaw = 0;
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','Tag','motionpath');
+    patch('xdata',0,'ydata',0,'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+    setappdata(handles.map_axes,'refpointfeq',1);
+    setappdata(handles.map_axes,'curvpointnum',1);
+    setappdata(handles.map_axes,'curvsecnum',6);
+    %%%%%%%%%%%%%%%%配置串口，准备发送起始命令%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    try
+        uppercom=serial('COM6');
+    catch
+        error('无法开启串口');
+    end
+    assignin('base','uppercom',uppercom);
+    set(uppercom,'BaudRate', 9600,'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
+%    uppercom.Terminator = 85;
+    setappdata(handles.serialtest,'uppercom',uppercom);
+    startcmd = [170,8,hex2dec('1A'),0,0,0,0,85];
+    uppercom.BytesAvailableFcnMode = 'byte';
+    uppercom.BytesAvailableFcnCount = 11;
+    uppercom.BytesAvailableFcn = {@uppercallback,handles};
+    fopen(uppercom);
+    fwrite(uppercom,startcmd,'uint8','async');
+%    handles = handles
+else
+    %%%%%%%%%%%%%清空绘图对象%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','开始串口测试');
+    delete(findobj('tag','mobilerbt'));
+    delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line')); 
+    delete(findobj('parent',handles.map_axes,'Tag','mobilerbt','type','patch'));
+    delete(findobj('tag','refpoint'));
+    rmappdata(handles.map_axes,'refpointfeq');
+    rmappdata(handles.map_axes,'curvpointnum');
+    %%%%%%%%%%%%%发送结束指令，处理串口%%%%%%%%%%%%%%%%%%%
+    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];
+    uppercom = getappdata(handles.serialtest,'uppercom');
+    fwrite(uppercom,closecmd,'uint8','sync');
+    fclose(uppercom);
+    delete(uppercom);
+    clear('uppercom');
+end
+
+function uppercallback(hObject,eventdata,handles)
+% % This MATLAB func will execute when the bytesavilable size enough
+
+% %  com = getappdata(handles.serialtest,'com');
+% %  fread(com,com.bytesavailable)
+% %  disp('receive');
+
+global pathX;
+global pathY;
+global tangent;
+global carposX;
+global carposY;
+global carposYaw;
+global curX;
+global curY;
+global currad;
+global curtan;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%接收串口数据%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+uppercom = getappdata(handles.serialtest,'uppercom');
+carpos = fread(uppercom,uppercom.bytesavailable);
+assignin('base','carpos',carpos)
+carposX = double([typecast(uint16(hex2dec([dec2hex(carpos(4),2),dec2hex(carpos(5),2)])),'int16'),carposX]);        %因为后面很多函数都要用double
+% caposxx = carposX(1)
+% carposxh = [dec2hex(carpos(4)),dec2hex(carpos(5))]
+carposY = double([typecast(uint16(hex2dec([dec2hex(carpos(6),2),dec2hex(carpos(7),2)])),'int16'),carposY]);
+carposYaw = [typecast(uint32(hex2dec([dec2hex(carpos(8),2),dec2hex(carpos(9),2),dec2hex(carpos(10),2),dec2hex(carpos(11),2)])),'single'),carposYaw];
+
+maxspd = 20; %rad/s
+minlinespd = 6.5;   %rad/s
+%%%%%%%%%%%%%%%%%获取参考目标点，获取路径弯曲程度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改参数有：目标点：1.决定是否改变目标点的判定距离  2.目标点选取时的最近距离
+%             道路弯曲程度：1.弯曲程度切分距离   2.弯曲程度选取范围-curvsecnum
+refpointfeq = getappdata(handles.map_axes,'refpointfeq');
+curvpointnum = getappdata(handles.map_axes,'curvpointnum');
+followref = [pathX(refpointfeq),pathY(refpointfeq),tangent(refpointfeq)];
+radtemp = followref(3) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
+ydiff = -sin(radtemp)*(carposX(1)-followref(1))+cos(radtemp)*(carposY(1)-followref(2));
+dist = norm([carposX(1)-followref(1),carposY(1)-followref(2)]);
+if refpointfeq >= length(pathX) || curvpointnum >= length(curX)-1
+    if ydiff >0 || dist < 50
+    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];
+%    com = getappdata(handles.serialtest,'com');
+    fwrite(uppercom,closecmd,'uint8','sync');
+    assignin('base','carposX',carposX);
+    assignin('base','carposY',carposY);
+    return;                 %停止定时器后，还需要中断定时器函数运行才可以
+    end
+end
+xdiff = abs(cos(radtemp)*(carposX(1)-followref(1))+sin(radtemp)*(carposY(1)-followref(2)));
+if ydiff >0 || dist <10
+    for n = refpointfeq:length(pathX);
+        radtemp = tangent(n) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
+        ydiff = -sin(radtemp)*(carposX(1)-pathX(n))+cos(radtemp)*(carposY(1)-pathY(n));
+        dist = norm([carposX(1)-pathX(n),carposY(1)-pathY(n)]);
+        if ydiff<0 && dist > 50 && n > getappdata(handles.map_axes,'refpointfeq')
+            followref = [pathX(n),pathY(n),tangent(n)];        %path following ref point
+            setappdata(handles.map_axes,'refpointfeq',n);
+            break;
+        end
+    end
+    xdiff = abs(cos(radtemp)*(carposX(1)-pathX(n))+sin(radtemp)*(carposY(1)-pathY(n)));     %已取abs绝对值
+end
+
+curvsecnum = getappdata(handles.map_axes,'curvsecnum');     %curve section number 弯曲段落数
+curvref = [curX(curvpointnum),curY(curvpointnum),sum(currad(curvpointnum:1:curvpointnum+curvsecnum))];
+radtemp = curtan(curvpointnum) - pi/2;
+ydiff = -sin(radtemp)*(carposX(1)-curvref(1))+cos(radtemp)*(carposY(1)-curvref(2));
+if ydiff >0
+    for m = curvpointnum:length(curX);
+        radtemp = curtan(m) - pi/2;            %此处减去pi/2的原因是为了让参考目标方向成为Y轴
+        ydiff = -sin(radtemp)*(carposX(1)-curX(m))+cos(radtemp)*(carposY(1)-curY(m));
+        if ydiff<0 && m > getappdata(handles.map_axes,'curvpointnum')
+            if m+curvsecnum>=length(curX)
+                curvsecnum = length(curX) - m;
+                setappdata(handles.map_axes,'curvsecnum',curvsecnum);
+            end
+            curvref = [curX(m),curY(m),sum(currad(m:1:m+curvsecnum))];            %path curv ref point
+            setappdata(handles.map_axes,'curvpointnum',m);
+            break;
+        end
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%计算变换后的参考方向%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改的参数： 1.lambda  2.Kxdiff
+%注：xdiff在上面计算时已经取abs绝对值
+    lambda = 150;
+    Kxdiff = 4;
+    deltacr = vec2rad([1,0],[followref(1) - carposX(1),followref(2) - carposY(1)]);
+    if deltacr > pi
+        deltacr = deltacr - 2*pi;
+    end
+    deltar = followref(3);
+    deltarad = deltacr - deltar;
+%    xdiff = xdiff
+    gamma = 1/(pi/2+atan(lambda));
+%    followref3 = followref(3)
+    refangle = followref(3) + (deltarad) * gamma * (atan(Kxdiff*xdiff-lambda)+atan(lambda));
+%%%%%%%%%%%%%%%%%%%%%计算期望线速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改的参数： 1.k1-方向角误差的影响系数  2.k2-道路弯曲程度影响系数
+    refdeltarad = carposYaw(1) - refangle;
+    if refdeltarad > pi
+        refdeltarad = refdeltarad-2*pi;
+    elseif refdeltarad < -pi
+        refdeltarad = 2*pi + refdeltarad;
+    end
+    k1 = 0.1;
+    k2 = 0.6;
+%    curref = curvref(3)
+    linespd = (1-k1*abs(refdeltarad)-k2*curvref(3))*maxspd;
+    if linespd <= minlinespd
+        linespd = minlinespd;
+    end
+%%%%%%%%%%%%%%%%%%%%计算期望角速度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%可修改的参数：    1.k3-方向角误差对左右轮差分的影响系数
+%    refdeltarad = refdeltarad
+    k3 = 60;
+    lAngSpd = round(linespd + (k3*refdeltarad));
+    if lAngSpd > maxspd
+        lAngSpd = maxspd;
+    elseif lAngSpd < minlinespd
+        lAngSpd = 0;
+    end
+    rAngSpd = round(linespd - (k3*refdeltarad));
+    if rAngSpd > maxspd
+        rAngSpd = maxspd;
+    elseif rAngSpd < minlinespd
+        rAngSpd = 0;
+    end
+%     lAngSpd = lAngSpd
+%     rAngSpd = rAngSpd
+%%%%%%%%%%%%%%%%%%%%发送角度命令%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %若为负数，求补码
+%%%%%%%%%%%%%妈的自作多情%%%%%%%%%%%%%%%%%%%%%
+% %     if sign(lAngSpd)+sign(rAngSpd) == -2        %因为sign函数返回的是1,0,-1，所以这里不用eps判断
+% %         lAngSpd = dec2hex(2^16 + lAngSpd);
+% %         rAngSpd = dec2hex(2^16 + rAngSpd);
+% %     elseif sign(lAngSpd)+sign(rAngSpd) == 0
+% %         if sign(lAngSpd) == -1
+% %            lAngSpd = dec2hex(2^16 + lAngSpd);
+% %         else
+% %            rAngSpd = dec2hex(2^16 + rAngSpd);
+% %         end
+% %     end
+    if sign(lAngSpd) == -1
+        langspdh = dec2hex(2^16 + lAngSpd,4);
+    else
+        langspdh = dec2hex(lAngSpd,4);
+    end
+    if sign(rAngSpd) == -1
+         rangspdh = dec2hex(2^16 + rAngSpd,4);
+    else
+         rangspdh = dec2hex(rAngSpd,4);
+    end
+%     langspdh = langspdh
+%     rangspdh = rangspdh
+    if length(langspdh)<4
+        langspdh = [zeros(1,4-length(langspdh)),langspdh];
+    end
+    if length(rangspdh)<4
+        rangspdh = [zeros(1,4-length(rangspdh)),rangspdh];
+    end
+    drivecmd = [170,8,hex2dec('1C'),hex2dec(langspdh(1:2)),hex2dec(langspdh(3:4)),hex2dec(rangspdh(1:2)),hex2dec(rangspdh(3:4)),80];
+    fwrite(uppercom,drivecmd);
+%%%%%%%%%%%%%%%%%%%保存路径，用于显示%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % %     carposX = [carposX(1),carposX];
+% % %     carposY = [carposY(1),carposY];
+% % %     tYaw = carposYaw;
+% % %     if tYaw>=2*pi
+% % %         tYaw = tYaw-2*pi;
+% % %     elseif tYaw<=-2*pi
+% % %         tYaw = tYaw+2*pi;
+% % %     end
+% % %     if tYaw < 0                                  %角度统一使用0~2pi范围
+% % %         tYaw = tYaw +2*pi;
+% % %     end
+% % %     carposYaw =  tYaw;
+%%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
+%    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath','Marker','o','markersize',2,'Markeredgecolor','r');
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');    
+     delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
+     patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+
+
+% --- Executes on button press in stm32recsim.
+function stm32recsim_Callback(hObject, eventdata, handles)
+% hObject    handle to stm32recsim (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of stm32recsim
+global stm32carposx
+global stm32carposy
+global stm32carposyaw;
+state = get(hObject,'value');
+if state
+    set(hObject,'string','结束接收模拟');
+    stm32carposx = 0;
+    stm32carposy = 0;
+    stm32carposyaw = 0;
+    try
+        lowercom=serial('COM5');
+    catch
+        error('无法开启串口');
+    end
+    assignin('base','lowercom',lowercom);
+    set(lowercom,'BaudRate', 9600,'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
+%    uppercom.Terminator = 85;
+    setappdata(handles.stm32recsim,'lowercom',lowercom);
+    lowercom.BytesAvailableFcnMode = 'byte';
+    lowercom.BytesAvailableFcnCount = 8;
+    lowercom.BytesAvailableFcn = {@lowercallback,handles};
+    fopen(lowercom);
+else
+    set(hObject,'string','开始接收模拟');
+    lowercom = getappdata(handles.stm32recsim,'lowercom');
+    fclose(lowercom);
+    delete(lowercom);
+    clear('lowercom');
+    toc;
+end
+
+function lowercallback(hObject,eventdata,handles)
+global stm32carposx
+global stm32carposy
+global stm32carposyaw
+lowercom = getappdata(handles.stm32recsim,'lowercom');
+angspd = fread(lowercom,lowercom.bytesavailable);
+assignin('base','carpos',angspd);
+if angspd(3) == hex2dec('1A')
+    tic;
+end
+%%%%%%%%%%%%%%从接收到的字符中提取出速度，STM32中还需要多一个赋值的步骤%%%%%%%%%%%%%%%%%%%%%%
+langspd = typecast(uint16(hex2dec([dec2hex(angspd(4),2),dec2hex(angspd(5),2)])),'int16');
+rangspd = typecast(uint16(hex2dec([dec2hex(angspd(6),2),dec2hex(angspd(7),2)])),'int16');
+if angspd(3) == hex2dec('1B')
+    toc;
+    langspd = 0;     %%%i know it might be unused, 放在这里是表示STM32将速度置零的思路
+    rangspd = 0;
+    return;
+end
+%%%由于这里是仿真，所以要计算时间间隔，根据电机转速带入运动学模型中，得到路程，模拟小车运动%%%
+%%%%%%%%%%%在STM32中，接收到电机转速后，直接赋值即可，然后返回地理坐标信息%%%%%%%%%%%%%%%%%%
+timeinterval = toc;
+dif = carkine(double(langspd),double(rangspd),stm32carposyaw(1))*timeinterval;
+tic;
+stm32carposx = round(stm32carposx(1)+dif(1));
+stm32carposy = round(stm32carposy(1)+dif(2));
+tYaw = stm32carposyaw+dif(3);
+if tYaw>=2*pi
+    tYaw = tYaw-2*pi;
+elseif tYaw<=-2*pi
+    tYaw = tYaw+2*pi;
+end
+if tYaw < 0                                  %角度统一使用0~2pi范围
+    tYaw = tYaw +2*pi;
+end
+stm32carposyaw =  tYaw;
+
+% % if sign(stm32carposx)+sign(stm32carposy) == -2        %因为sign函数返回的是1,0,-1，所以这里不用eps判断
+% %     stm32carposx = dec2hex(2^16 + stm32carposx);
+% %     stm32carposy = dec2hex(2^16 + stm32carposy);
+% % elseif sign(stm32carposx)+sign(stm32carposy) == 0
+% %     if sign(stm32carposx) == -1
+% %        stm32carposx = dec2hex(2^16 + stm32carposx);
+% %     else
+% %        stm32carposy = dec2hex(2^16 + stm32carposy);
+% %     end
+% % end
+
+%%%%%%%%%%%%%%将地理坐标拆成两个八位，发送地理坐标到upper%%%%%%%%%%%%%%%%%
+if sign(stm32carposx) == -1
+    stm32carposxh = dec2hex(2^16 + stm32carposx,4);
+else
+    stm32carposxh = dec2hex(stm32carposx,4);
+end
+if sign(stm32carposy) == -1
+    stm32carposyh = dec2hex(2^16 + stm32carposy,4);
+else
+    stm32carposyh = dec2hex(stm32carposy,4);    
+end
+% stm32carposxh = stm32carposxh
+% if length(stm32carposxh)<4
+%     stm32carposxh = [zeros(1,4-length(stm32carposxh)),stm32carposxh];
+% end
+% if length(stm32carposyh)<4
+%     stm32carposyh = [zeros(1,4-length(stm32carposyh)),stm32carposyh];
+% end
+
+stm32carposyawh = num2hex(single(stm32carposyaw));
+loccmd = [170,8,hex2dec('6A'),hex2dec(stm32carposxh(1:2)),hex2dec(stm32carposxh(3:4)),...
+            hex2dec(stm32carposyh(1:2)), hex2dec(stm32carposyh(3:4)),...
+            hex2dec(stm32carposyawh(1:2)),hex2dec(stm32carposyawh(3:4)),hex2dec(stm32carposyawh(5:6)),hex2dec(stm32carposyawh(7:8)),80];
+% stm32carposxh = stm32carposxh        
+fwrite(lowercom,loccmd);
