@@ -62,14 +62,14 @@ theta = thetarad;
 linearray = [outx,outy];
 n = 1;                  %useless index
 useless = zeros(length(outx)-1,1);
-for m = 2:length(outx)-1
+for m = 2:length(outx)-5
     a = linearray(m-1,:)-linearray(m,:);
     b = linearray(m+1,:)-linearray(m,:);
     coner = acos(sum(a.*b)/(norm(a)*norm(b)));
     if coner == pi
         useless(n) = m;
         n = n+1;
-    end      
+    end
 end
 useless(useless == 0) = [];
 linearray(useless,:) = [];

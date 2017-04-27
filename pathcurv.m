@@ -7,11 +7,12 @@ function [ outx,outy,outcur,outtan ] = pathcurv( inpx,inpy,diststd )
     m = 1;                      %out index
     dist = diststd;             %标准路程差
     curacc = 0;                 %弧度累加，越大代表弯曲程度越高
-    while n<=length(inpx)-1
+    while n<=length(inpx)-1         %这里有问题，当length(inpx) == 2的情况会不进入循环
 %         if n == length(inpx)-2
 %             crt = crtspot
 %             pause();
 %         end
+%         distdebug = norm(crtspot-refp(n,:))
         if norm(crtspot-refp(n,:))>dist
             coner = vec2rad([1,0],refp(n,:) - crtspot);      %注意vec2rad(a,b)得到的结果是a-b的顺时针夹角
 %            pause();

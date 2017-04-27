@@ -9,7 +9,7 @@ function [ outx,outy,theta ] = pathjudger2(inpx,inpy)
 linearray = [inpx,inpy];
 
 n = 0;
-for i=1:length(linearray)-1
+for i=1:length(linearray)-2
     j = i-n;
     if linearray(j,:) == linearray(j+1,:)  %这里删除的思路应该改下，改成先获取index，然后删除对应index
         linearray(j+1,:) = [];
@@ -61,7 +61,7 @@ theta = thetarad;
 linearray = [outx,outy];
 n = 1;                  %useless index
 useless = zeros(length(outx)-1,1);
-for m = 2:length(outx)-1
+for m = 2:length(outx)-5
     a = linearray(m-1,:)-linearray(m,:);
     b = linearray(m+1,:)-linearray(m,:);
     coner = acos(sum(a.*b)/(norm(a)*norm(b)));

@@ -22,7 +22,7 @@ function varargout = carControl(varargin)
 
 % Edit the above text to modify the response to help carControl
 
-% Last Modified by GUIDE v2.5 20-Apr-2017 10:11:31
+% Last Modified by GUIDE v2.5 27-Apr-2017 16:54:34
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -348,7 +348,7 @@ if state
     set(hObject,'string','结束目标点获取');
     patch('xdata',0,'ydata',0,'Marker','o','edgecolor','r','visible','off','tag','refpoint');
     setappdata(gca,'refpointnum',1);
-    setappdata(gca,'curvpointnum',1);    
+    setappdata(gca,'curvpointnum',1);
 %    setappdata(hObject,'getrefIP',true);
 else
     set(hObject,'string','开始目标点获取');
@@ -513,14 +513,6 @@ end
 %注：xdiff在上面计算时已经取abs绝对值
     lambda = 150;
     Kxdiff = 4;
-%    carposYaw = carposYaw
-%    folrefrad = followref(3)
-%     deltarad = carposYaw - followref(3);
-%     if deltarad > pi
-%         deltarad = deltarad - 2*pi;
-%     elseif deltarad < -pi
-%         deltarad = 2*pi + deltarad;
-%     end
     deltacr = vec2rad([1,0],[followref(1) - carposX(1),followref(2) - carposY(1)]);
     if deltacr > pi
         deltacr = deltacr - 2*pi;
@@ -643,30 +635,12 @@ end
 global block;               %visible part
 % % global obstacle;            %visible & invisible part
 state = get(hObject,'value');
-% % blockunit = 20;
-% % radius = 100;
 if state
     set(get(handles.map_axes,'parent'),'pointer','fullcrosshair');
-% %     obstacle = [[-1,0];obstacle];
-% %     blockcircle = circlemaker(radius,blockunit);
-% %     obstacle = [blockcircle(:,1),blockcircle(:,2)+(radius/blockunit)+1;obstacle];
-% %     obstacle = [blockcircle(:,1),blockcircle(:,2)-((radius/blockunit)+1);obstacle];    
-% %     obstacle = unique(obstacle,'rows');
     set(hObject,'string','结束障碍绘制');
-% %     set(hObject,'userdata',blockunit);
-% %     setappdata(handles.block_painter,'radius',radius);
-% %     setappdata(handles.block_painter,'blockunit',blockunit); 
-% %    setappdata(handles.map_axes,'blockcircle',blockcircle);
 else
     set(hObject,'string','开始障碍绘制');
-% %     blockcircle = getappdata(handles.map_axes,'blockcircle');
-% %     obstacle = [zeros(size(blockcircle,1)*size(block,1),2);obstacle];
-% %     for n = 1:size(block,1)
-% %     obstacle((n-1)*size(blockcircle,1)+1:n*size(blockcircle,1),:) = [blockcircle(:,1)+block(n,1),blockcircle(:,2)+block(n,2)];
-% %     end
-% %     obstacle = unique(obstacle,'rows');
     assignin('base','lastblock',block);
-% %     assignin('base','lastobstacle',obstacle);
     set(get(handles.map_axes,'parent'),'pointer','arrow');
 end
 
@@ -697,27 +671,11 @@ end
 global block;               %visible part
 % % global obstacle;            %visible & invisible part
 state = get(hObject,'value');
-% blockunit = 20;
-% radius = 100;
-% blockcircle = circlemaker(radius,blockunit);
-% %     blockunit = getappdata(handles.block_painter,'blockunit');
-% %     blockcircle = getappdata(handles.map_axes,'blockcircle');
-% %     radius = getappdata(handles.block_painter,'radius');
     if state && ~isempty(block)
         set(hObject,'string','结束障碍擦除');   
         set(get(handles.map_axes,'parent'),'pointer','fullcrosshair');
-% %         obstacle = [-1,0];
-% %         obstacle = [blockcircle(:,1),blockcircle(:,2)+(radius/blockunit)+1;obstacle];
-% %         obstacle = [blockcircle(:,1),blockcircle(:,2)-((radius/blockunit)+1);obstacle];    
-% %         obstacle = unique(obstacle,'rows');
     else
         set(hObject,'string','开始障碍擦除');
-% %         obstacle = [zeros(size(blockcircle,1)*size(block,1),2);obstacle];
-% %         for n = 1:size(block,1)
-% %         obstacle((n-1)*size(blockcircle,1)+1:n*size(blockcircle,1),:) = ...
-% %             [blockcircle(:,1)+block(n,1),blockcircle(:,2)+block(n,2)];
-% %         end
-% %         obstacle = unique(obstacle,'rows');     
         set(get(handles.map_axes,'parent'),'pointer','arrow');
     end
 
@@ -755,11 +713,6 @@ blockunit = getappdata(handles.map_axes,'blockunit');
         temp = load([pathfilename,'.mat']);        %block only
         if ~isempty(temp.block)
             block = temp.block;
-%             obstacle = zeros(size(blockcircle,1)*size(block,1),2);
-%             for n = 1:size(block,1)
-%             obstacle((n-1)*size(blockcircle,1)+1:n*size(blockcircle,1),:) = ...
-%                 [blockcircle(:,1)+block(n,1),blockcircle(:,2)+block(n,2)];
-%             end
             delete(findobj(handles.map_axes,'type','rectangle'));
             for n = 1:size(block,1)
                 rectangle('Position',[block(n,1)*blockunit-blockunit/2,...
@@ -889,16 +842,21 @@ if state
         error('无法开启串口');
     end
     assignin('base','uppercom',uppercom);
-    set(uppercom,'BaudRate', 9600,'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
+    baudstrcell = get(handles.baudselect,'string');
+    set(uppercom,'BaudRate', str2num(baudstrcell{get(handles.baudselect,'value')}),'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
 %    uppercom.Terminator = 85;
     setappdata(handles.serialtest,'uppercom',uppercom);
-    startcmd = [170,8,hex2dec('1A'),0,0,0,0,85];
+%    startcmd = [170,8,hex2dec('1A'),0,0,0,0,85];   % 用来模拟仿真
+    startcmd = [170,5,hex2dec('1A'),0,85];
     uppercom.BytesAvailableFcnMode = 'byte';
-    uppercom.BytesAvailableFcnCount = 11;
+    uppercom.BytesAvailableFcnCount = 12;
+%%%%%%%%%返回cr,cl,4bytes%%%%%%%%%%%%%%    
+     uppercom.BytesAvailableFcnCount = 16;   
     uppercom.BytesAvailableFcn = {@uppercallback,handles};
     fopen(uppercom);
     fwrite(uppercom,startcmd,'uint8','async');
-%    handles = handles
+%     handles = handles
+
 else
     %%%%%%%%%%%%%清空绘图对象%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     set(hObject,'string','开始串口测试');
@@ -909,9 +867,15 @@ else
     rmappdata(handles.map_axes,'refpointfeq');
     rmappdata(handles.map_axes,'curvpointnum');
     %%%%%%%%%%%%%发送结束指令，处理串口%%%%%%%%%%%%%%%%%%%
-    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];
+%    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];        % 用来模拟仿真
+     closecmd = [170,5,hex2dec('1B'),0,85];
+%      m = 0;
+%      ifbusy = getappdata(handles.serialtest,'ifbusy');
+%      while ifbusy && m <= 10
+%          m = m+1
+%      end
     uppercom = getappdata(handles.serialtest,'uppercom');
-    fwrite(uppercom,closecmd,'uint8','sync');
+     fwrite(uppercom,closecmd,'uint8','sync');
     fclose(uppercom);
     delete(uppercom);
     clear('uppercom');
@@ -923,6 +887,8 @@ function uppercallback(hObject,eventdata,handles)
 % %  com = getappdata(handles.serialtest,'com');
 % %  fread(com,com.bytesavailable)
 % %  disp('receive');
+
+setappdata(handles.serialtest,'ifbusy',true);
 
 global pathX;
 global pathY;
@@ -939,13 +905,18 @@ uppercom = getappdata(handles.serialtest,'uppercom');
 carpos = fread(uppercom,uppercom.bytesavailable);
 assignin('base','carpos',carpos)
 carposX = double([typecast(uint16(hex2dec([dec2hex(carpos(4),2),dec2hex(carpos(5),2)])),'int16'),carposX]);        %因为后面很多函数都要用double
-% caposxx = carposX(1)
+ caposxx = carposX(1)
+ caposyy = carposY(1)
 % carposxh = [dec2hex(carpos(4)),dec2hex(carpos(5))]
 carposY = double([typecast(uint16(hex2dec([dec2hex(carpos(6),2),dec2hex(carpos(7),2)])),'int16'),carposY]);
 carposYaw = [typecast(uint32(hex2dec([dec2hex(carpos(8),2),dec2hex(carpos(9),2),dec2hex(carpos(10),2),dec2hex(carpos(11),2)])),'single'),carposYaw];
+carposyyaw = carposYaw(1)
 
-maxspd = 20; %rad/s
-minlinespd = 6.5;   %rad/s
+CL = double(typecast(uint16(hex2dec([dec2hex(carpos(12),2),dec2hex(carpos(13),2)])),'int16'))
+CR = double(typecast(uint16(hex2dec([dec2hex(carpos(14),2),dec2hex(carpos(15),2)])),'int16'))
+
+maxspd = 40; %rad/s
+minlinespd = 14;   %rad/s
 %%%%%%%%%%%%%%%%%获取参考目标点，获取路径弯曲程度%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %可修改参数有：目标点：1.决定是否改变目标点的判定距离  2.目标点选取时的最近距离
 %             道路弯曲程度：1.弯曲程度切分距离   2.弯曲程度选取范围-curvsecnum
@@ -957,7 +928,8 @@ ydiff = -sin(radtemp)*(carposX(1)-followref(1))+cos(radtemp)*(carposY(1)-followr
 dist = norm([carposX(1)-followref(1),carposY(1)-followref(2)]);
 if refpointfeq >= length(pathX) || curvpointnum >= length(curX)-1
     if ydiff >0 || dist < 50
-    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];
+%    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];        % 用来模拟仿真
+    closecmd = [170,6,hex2dec('1B'),0,0,85];
 %    com = getappdata(handles.serialtest,'com');
     fwrite(uppercom,closecmd,'uint8','sync');
     assignin('base','carposX',carposX);
@@ -1003,7 +975,7 @@ end
 %可修改的参数： 1.lambda  2.Kxdiff
 %注：xdiff在上面计算时已经取abs绝对值
     lambda = 150;
-    Kxdiff = 4;
+    Kxdiff = 5;
     deltacr = vec2rad([1,0],[followref(1) - carposX(1),followref(2) - carposY(1)]);
     if deltacr > pi
         deltacr = deltacr - 2*pi;
@@ -1060,6 +1032,15 @@ end
 % %            rAngSpd = dec2hex(2^16 + rAngSpd);
 % %         end
 % %     end
+
+% %     lAngSpd = 40;       %测试下位机程序BUG
+% %     rAngSpd = 40;
+
+    if  strcmp(get(handles.serialtest,'string'),'开始串口测试')
+        lAngSpd = 0; 
+        rAngSpd = 0;
+    end
+    
     if sign(lAngSpd) == -1
         langspdh = dec2hex(2^16 + lAngSpd,4);
     else
@@ -1078,27 +1059,16 @@ end
     if length(rangspdh)<4
         rangspdh = [zeros(1,4-length(rangspdh)),rangspdh];
     end
-    drivecmd = [170,8,hex2dec('1C'),hex2dec(langspdh(1:2)),hex2dec(langspdh(3:4)),hex2dec(rangspdh(1:2)),hex2dec(rangspdh(3:4)),80];
+%    drivecmd = [170,8,hex2dec('1C'),hex2dec(langspdh(1:2)),hex2dec(langspdh(3:4)),hex2dec(rangspdh(1:2)),hex2dec(rangspdh(3:4)),80];
+
+    drivecmd = [170,6,hex2dec('1C'),hex2dec(langspdh(3:4)),hex2dec(rangspdh(3:4)),85]
     fwrite(uppercom,drivecmd);
-%%%%%%%%%%%%%%%%%%%保存路径，用于显示%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % %     carposX = [carposX(1),carposX];
-% % %     carposY = [carposY(1),carposY];
-% % %     tYaw = carposYaw;
-% % %     if tYaw>=2*pi
-% % %         tYaw = tYaw-2*pi;
-% % %     elseif tYaw<=-2*pi
-% % %         tYaw = tYaw+2*pi;
-% % %     end
-% % %     if tYaw < 0                                  %角度统一使用0~2pi范围
-% % %         tYaw = tYaw +2*pi;
-% % %     end
-% % %     carposYaw =  tYaw;
-%%%%%%%%%%%%%%%%%%%%%显示运动点%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
 %    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath','Marker','o','markersize',2,'Markeredgecolor','r');
     line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');    
      delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
      patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+     setappdata(handles.serialtest,'ifbusy',false);
 
 
 % --- Executes on button press in stm32recsim.
@@ -1123,7 +1093,8 @@ if state
         error('无法开启串口');
     end
     assignin('base','lowercom',lowercom);
-    set(lowercom,'BaudRate', 9600,'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
+    baudstrcell = get(handles.baudselect,'string');
+    set(lowercom,'BaudRate',str2num(baudstrcell{get(handles.baudselect,'value')}),'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
 %    uppercom.Terminator = 85;
     setappdata(handles.stm32recsim,'lowercom',lowercom);
     lowercom.BytesAvailableFcnMode = 'byte';
@@ -1176,16 +1147,6 @@ if tYaw < 0                                  %角度统一使用0~2pi范围
 end
 stm32carposyaw =  tYaw;
 
-% % if sign(stm32carposx)+sign(stm32carposy) == -2        %因为sign函数返回的是1,0,-1，所以这里不用eps判断
-% %     stm32carposx = dec2hex(2^16 + stm32carposx);
-% %     stm32carposy = dec2hex(2^16 + stm32carposy);
-% % elseif sign(stm32carposx)+sign(stm32carposy) == 0
-% %     if sign(stm32carposx) == -1
-% %        stm32carposx = dec2hex(2^16 + stm32carposx);
-% %     else
-% %        stm32carposy = dec2hex(2^16 + stm32carposy);
-% %     end
-% % end
 
 %%%%%%%%%%%%%%将地理坐标拆成两个八位，发送地理坐标到upper%%%%%%%%%%%%%%%%%
 if sign(stm32carposx) == -1
@@ -1196,15 +1157,8 @@ end
 if sign(stm32carposy) == -1
     stm32carposyh = dec2hex(2^16 + stm32carposy,4);
 else
-    stm32carposyh = dec2hex(stm32carposy,4);    
+    stm32carposyh = dec2hex(stm32carposy,4);
 end
-% stm32carposxh = stm32carposxh
-% if length(stm32carposxh)<4
-%     stm32carposxh = [zeros(1,4-length(stm32carposxh)),stm32carposxh];
-% end
-% if length(stm32carposyh)<4
-%     stm32carposyh = [zeros(1,4-length(stm32carposyh)),stm32carposyh];
-% end
 
 stm32carposyawh = num2hex(single(stm32carposyaw));
 loccmd = [170,8,hex2dec('6A'),hex2dec(stm32carposxh(1:2)),hex2dec(stm32carposxh(3:4)),...
@@ -1212,3 +1166,260 @@ loccmd = [170,8,hex2dec('6A'),hex2dec(stm32carposxh(1:2)),hex2dec(stm32carposxh(
             hex2dec(stm32carposyawh(1:2)),hex2dec(stm32carposyawh(3:4)),hex2dec(stm32carposyawh(5:6)),hex2dec(stm32carposyawh(7:8)),80];
 % stm32carposxh = stm32carposxh        
 fwrite(lowercom,loccmd);
+
+
+% --- Executes on button press in manual_control.
+function manual_control_Callback(hObject, eventdata, handles)
+% hObject    handle to manual_control (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of manual_control
+global carposX;
+global carposY;
+global carposYaw;
+state = get(hObject,'value');
+if state
+    %%%%%%%%%%%%%基础准备，包括绘图准备%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','结束手动控制');
+    carposX = 0;        %数组
+    carposY = 0;        %数组
+    carposYaw = 0;
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','Tag','motionpath');
+    patch('xdata',0,'ydata',0,'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+    %%%%%%%%%%%%%%%%配置串口，准备发送起始命令%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    try
+        uppercom=serial('COM6');
+    catch
+        error('无法开启串口');
+    end
+    assignin('base','uppercom',uppercom);
+    baudstrcell = get(handles.baudselect,'string');
+    set(uppercom,'BaudRate', str2num(baudstrcell{get(handles.baudselect,'value')}),'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
+%    uppercom.Terminator = 85;
+    setappdata(handles.serialtest,'uppercom',uppercom);
+%    startcmd = [170,8,hex2dec('1A'),0,0,0,0,85];   % 用来模拟仿真
+    startcmd = [170,5,hex2dec('1A'),0,85];
+    uppercom.BytesAvailableFcnMode = 'byte';
+    uppercom.BytesAvailableFcnCount = 11;
+    uppercom.BytesAvailableFcn = {@remote_control,handles};
+    fopen(uppercom);
+    fwrite(uppercom,startcmd,'uint8','async');
+%    handles = handles
+else
+    %%%%%%%%%%%%%清空绘图对象%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','开始手动控制');
+    delete(findobj('tag','mobilerbt'));
+    delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line')); 
+    delete(findobj('parent',handles.map_axes,'Tag','mobilerbt','type','patch'));
+    delete(findobj('tag','refpoint'));
+    %%%%%%%%%%%%%发送结束指令，处理串口%%%%%%%%%%%%%%%%%%%
+%    closecmd = [170,8,hex2dec('1B'),0,0,0,0,85];        % 用来模拟仿真
+    closecmd = [170,5,hex2dec('1B'),0,85];    
+    uppercom = getappdata(handles.serialtest,'uppercom');
+    fwrite(uppercom,closecmd,'uint8','sync');
+    fclose(uppercom);
+    delete(uppercom);
+    clear('uppercom');
+end
+
+function remote_control(hObject,eventdata,handles)
+% % This MATLAB func will execute when the bytesavilable size enough
+
+% %  com = getappdata(handles.serialtest,'com');
+% %  fread(com,com.bytesavailable)
+% %  disp('receive');
+
+global carposX;
+global carposY;
+global carposYaw;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%接收串口数据%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+uppercom = getappdata(handles.serialtest,'uppercom');
+carpos = fread(uppercom,uppercom.bytesavailable)
+% % assignin('base','carpos',carpos)
+carposX = double([typecast(uint16(hex2dec([dec2hex(carpos(4),2),dec2hex(carpos(5),2)])),'int16'),carposX]);        %因为后面很多函数都要用double
+caposxx = carposX(1)
+carposY = double([typecast(uint16(hex2dec([dec2hex(carpos(6),2),dec2hex(carpos(7),2)])),'int16'),carposY]);
+caposyy = carposY(1)
+carposYaw = [typecast(uint32(hex2dec([dec2hex(carpos(8),2),dec2hex(carpos(9),2),dec2hex(carpos(10),2),dec2hex(carpos(11),2)])),'single'),carposYaw];
+carposyyaw = carposYaw(1)
+
+maxspd = 35; %rad/s
+minlinespd = 14;   %rad/s
+    pos = get(handles.control_axes,'currentpoint');
+    pos = [pos(1),pos(3)];
+    lAngSpd = pos(2)+pos(1);
+    rAngSpd = pos(2)-pos(1);
+%      lAngSpd = lAngSpd
+%      rAngSpd = rAngSpd
+    if lAngSpd > maxspd
+        lAngSpd = maxspd;
+    elseif lAngSpd < minlinespd
+        lAngSpd = 0;
+    end
+    if rAngSpd > maxspd
+        rAngSpd = maxspd;
+    elseif rAngSpd < minlinespd
+        rAngSpd = 0;
+    end
+%%%%%%%%%%%%%%%%%%%%发送角度命令%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %若为负数，求补码
+    if sign(lAngSpd) == -1
+        langspdh = dec2hex(2^16 + lAngSpd,4);
+    else
+        langspdh = dec2hex(lAngSpd,4);
+    end
+    if sign(rAngSpd) == -1
+         rangspdh = dec2hex(2^16 + rAngSpd,4);
+    else
+         rangspdh = dec2hex(rAngSpd,4);
+    end
+%     langspdh = langspdh
+%     rangspdh = rangspdh
+    if length(langspdh)<4
+        langspdh = [zeros(1,4-length(langspdh)),langspdh];
+    end
+    if length(rangspdh)<4
+        rangspdh = [zeros(1,4-length(rangspdh)),rangspdh];
+    end
+%    drivecmd = [170,8,hex2dec('1C'),hex2dec(langspdh(1:2)),hex2dec(langspdh(3:4)),hex2dec(rangspdh(1:2)),hex2dec(rangspdh(3:4)),80];
+    drivecmd = [170,6,hex2dec('1C'),hex2dec(langspdh(3:4)),hex2dec(rangspdh(3:4)),85]
+    fwrite(uppercom,drivecmd);
+    delete(findobj('parent',handles.map_axes,'Tag','motionpath','type','line'));
+%    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath','Marker','o','markersize',2,'Markeredgecolor','r');
+    line(carposX,carposY,'parent',handles.map_axes,'erasemode','normal','tag','motionpath');    
+     delete(findobj('parent',handles.map_axes,'Tag','mobilerbt'));
+     patch('xdata',carposX(1),'ydata',carposY(1),'Marker','o','markersize',2,'edgecolor','r','tag','mobilerbt','parent',handles.map_axes);
+     
+
+
+% --- Executes on button press in onspotturning.
+function onspotturning_Callback(hObject, eventdata, handles)
+% hObject    handle to onspotturning (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of onspotturning
+
+global carposYaw;
+state = get(hObject,'value');
+if state
+    %%%%%%%%%%%%%基础准备%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','结束原地转向');
+    setappdata(handles.onspotturning,'deltaarc',2*pi+1);
+    setappdata(handles.onspotturning,'arrive',false);
+    carposYaw = 0;
+    %%%%%%%%%%%%%%%%配置串口，准备发送起始命令%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    try
+        uppercom=serial('COM6');
+    catch
+        error('无法开启串口');
+    end
+    assignin('base','uppercom',uppercom);
+    baudstrcell = get(handles.baudselect,'string');
+    set(uppercom,'BaudRate', str2num(baudstrcell{get(handles.baudselect,'value')}),'DataBits',8,'StopBits',1,'Parity','none','FlowControl','none');%设置串口属性等
+    setappdata(handles.onspotturning,'uppercom',uppercom);
+    startcmd = [170,5,hex2dec('1A'),0,85];
+    uppercom.BytesAvailableFcnMode = 'byte';
+     uppercom.BytesAvailableFcnCount = 16;
+    uppercom.BytesAvailableFcn = {@onspotturn_callback,handles};
+    fopen(uppercom);
+    fwrite(uppercom,startcmd,'uint8','async');
+
+else
+    %%%%%%%%%%%%%清空绘图对象%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','开始原地转向');
+    %%%%%%%%%%%%%发送结束指令，处理串口%%%%%%%%%%%%%%%%%%%
+     closecmd = [170,5,hex2dec('1B'),0,85];
+    uppercom = getappdata(handles.onspotturning,'uppercom');
+     fwrite(uppercom,closecmd,'uint8','sync');
+    fclose(uppercom);
+    delete(uppercom);
+    clear('uppercom');
+end
+
+function onspotturn_callback(hObject,evendata,handles)
+    global carposYaw;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%接收串口数据%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    uppercom = getappdata(handles.onspotturning,'uppercom');
+    carpos = fread(uppercom,uppercom.bytesavailable);
+    caposxx = double(typecast(uint16(hex2dec([dec2hex(carpos(4),2),dec2hex(carpos(5),2)])),'int16'))       %因为后面很多函数都要用double
+    caposyy = double(typecast(uint16(hex2dec([dec2hex(carpos(6),2),dec2hex(carpos(7),2)])),'int16'))
+    carposYaw = [typecast(uint32(hex2dec([dec2hex(carpos(8),2),dec2hex(carpos(9),2),dec2hex(carpos(10),2),dec2hex(carpos(11),2)])),'single'),carposYaw];
+    carposyyaw = carposYaw(1)
+
+    CL = double(typecast(uint16(hex2dec([dec2hex(carpos(12),2),dec2hex(carpos(13),2)])),'int16'))
+    CR = double(typecast(uint16(hex2dec([dec2hex(carpos(14),2),dec2hex(carpos(15),2)])),'int16'))
+    
+    if getappdata(handles.onspotturning,'arrive')
+        return;
+    end
+    
+    targetarc = pi*(str2num(get(handles.degree,'string'))*1/2);
+    a = [cos(targetarc),sin(targetarc)];
+    b = [cos(carposYaw(1)),sin(carposYaw(1))];
+    
+    deltaarc = acos(sum(a.*b)/(norm(a)*norm(b)))        %计算得出当前航向角与目标航向角的绝对误差值
+
+    differential = deltaarc - getappdata(handles.onspotturning,'deltaarc')  %误差值相减
+    setappdata(handles.onspotturning,'deltaarc',deltaarc)
+    
+    if deltaarc>=2*pi 
+      deltaarc = deltaarc-2*pi;
+    elseif deltaarc<=-2*pi
+        deltaarc = deltaarc+2*pi;
+    end
+    if deltaarc < 0                   %角度统一使用0~2pi范围
+        deltaarc = deltaarc +2*pi;
+    end
+    
+    if deltaarc <= 0.08 || differential>0
+        closecmd = [170,6,hex2dec('1C'),0,0,85];
+        fwrite(uppercom,closecmd,'uint8','sync');
+        setappdata(handles.onspotturning,'arrive',true);
+        return;
+    else
+        if strcmp(get(handles.rotationdir,'string'),'顺时针')
+            lAngSpd = 15;
+            rAngSpd = -15;
+        else
+            lAngSpd = -15;
+            rAngSpd = 15;
+        end
+    end
+
+    if  strcmp(get(handles.serialtest,'string'),'开始原地转向')
+        lAngSpd = 0;
+        rAngSpd = 0;
+    end
+    
+    if sign(lAngSpd) == -1
+        langspdh = dec2hex(2^16 + lAngSpd,4);
+    else
+        langspdh = dec2hex(lAngSpd,4);
+    end
+    if sign(rAngSpd) == -1
+         rangspdh = dec2hex(2^16 + rAngSpd,4);
+    else
+         rangspdh = dec2hex(rAngSpd,4);
+    end
+
+    drivecmd = [170,6,hex2dec('1C'),hex2dec(langspdh(3:4)),hex2dec(rangspdh(3:4)),85]
+    fwrite(uppercom,drivecmd);
+
+
+% --- Executes on button press in rotationdir.
+function rotationdir_Callback(hObject, eventdata, handles)
+% hObject    handle to rotationdir (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of rotationdir
+state = get(hObject,'value');
+if state
+    set(hObject,'string','逆时针');
+else
+    %%%%%%%%%%%%%清空绘图对象%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    set(hObject,'string','顺时针');
+end
